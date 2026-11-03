@@ -1,0 +1,91 @@
+# Läuft bei jeder Änderung im Repository (auch bei Uploads über die GitHub-Weboberfläche):
+#   1. erzeugt fehlende/geänderte Sprecherdateien (nur Szenen mit neuem Text)
+#   2. veröffentlicht die Website über GitHub Pages
+# Manuell: GitHub > Actions > "Veröffentlichen" > Run workflow (dort Engine wählen).
+#
+# Sprachausgabe:
+#   piper (Standard, kostenlos)  – Sprachmodell läuft im GitHub-Runner
+#   azure                        – Secret AZURE_SPEECH_KEY anlegen; optional Variablen
+#                                  AZURE_SPEECH_REGION (Standard germanywestcentral) und
+#                                  AZURE_VOICE (Standard de-DE-KatjaNeural).
+#                                  Dauerhaft umstellen: Variable TTS_ENGINE = azure
+#   (Settings > Secrets and variables > Actions)
+name: Veröffentlichen
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      engine:
+        description: "Sprachausgabe"
+        type: choice
+        options: [piper, azure]
+        default: piper
+      alles:
+        description: "Alle Szenen neu vertonen"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: veroeffentlichen
+  cancel-in-progress: false
+
+jobs:
+  sprecher:
+    runs-on: ubuntu-latest
+    env:
+      ENGINE: ${{ inputs.engine || vars.TTS_ENGINE || 'piper' }}
+      AZURE_VOICE: ${{ vars.AZURE_VOICE || 'de-DE-KatjaNeural' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Piper und deutsche Stimme laden
+        if: env.ENGINE == 'piper'
+        run: |
+          mkdir -p /tmp/piper && cd /tmp/piper
+          curl -sSL -o piper.tgz https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_x86_64.tar.gz
+          tar -xzf piper.tgz
+          V=https://huggingface.co/rhasspy/piper-voices/resolve/main/de/de_DE/thorsten/high
+          if curl -fsSL -o de_DE-thorsten-high.onnx "$V/de_DE-thorsten-high.onnx" && curl -fsSL -o de_DE-thorsten-high.onnx.json "$V/de_DE-thorsten-high.onnx.json"; then
+            echo "STIMME=/tmp/piper/de_DE-thorsten-high.onnx" >> "$GITHUB_ENV"
+          else
+            curl -sSL -o v.tgz https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-de-thorsten-low.tar.gz
+            tar -xzf v.tgz
+            echo "STIMME=/tmp/piper/de-thorsten-low.onnx" >> "$GITHUB_ENV"
+          fi
+
+      - name: Sprecherdateien erzeugen
+        env:
+          AZURE_SPEECH_KEY: ${{ secrets.AZURE_SPEECH_KEY }}
+          AZURE_SPEECH_REGION: ${{ vars.AZURE_SPEECH_REGION || 'germanywestcentral' }}
+        run: |
+          if [ "$ENGINE" = "azure" ]; then STIMME_ARG="$AZURE_VOICE"; else STIMME_ARG="$STIMME"; fi
+          python3 tools/tts.py --engine "$ENGINE" --stimme "$STIMME_ARG" --piper /tmp/piper/piper/piper ${{ inputs.alles && '--alles' || '' }}
+
+      - name: Sprecherdateien speichern
+        run: |
+          git config user.name "sprecher-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add audio
+          if git diff --cached --quiet; then echo "Keine neuen Sprecherdateien."; else git commit -m "Sprecherdateien aktualisiert ($ENGINE)"; git push; fi
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+  seite:
+    needs: sprecher
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

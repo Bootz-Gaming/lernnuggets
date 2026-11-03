@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Einzige externe Verbindung: GitHub-API (nur lesend), um die Dateien im Ordner media/ aufzulisten. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://api.github.com; font-src 'self'">
+  <title>Studio – Lernnuggets</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="assets/studio.css">
+</head>
+<body class="studio">
+  <header class="topbar">
+    <a href="index.html" class="brand" aria-label="Zur Lernplattform">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-text"><strong>Studio</strong><small>Inhalte und Animationen pflegen</small></span>
+    </a>
+    <div class="top-actions">
+      <span class="save-state" id="save-state" aria-live="polite"></span>
+      <button class="btn ghost" id="btn-preview">Vorschau öffnen</button>
+      <button class="btn" id="btn-export">Veröffentlichen …</button>
+    </div>
+  </header>
+
+  <div class="studio-layout">
+    <nav class="studio-nav" aria-label="Lernnuggets">
+      <div class="nav-head"><h2>Lernnuggets</h2><button class="ctrl" id="btn-new" title="Neues Lernnugget">＋ Neu</button></div>
+      <ul id="nugget-list"></ul>
+      <div class="nav-foot">
+        <button class="linkbtn" id="btn-reset">Entwurf verwerfen</button>
+      </div>
+    </nav>
+
+    <main id="editor" tabindex="-1"></main>
+
+    <aside class="media-lib" aria-labelledby="lib-h">
+      <h2 id="lib-h">Animationen</h2>
+      <p class="small">Eigene Dateien (.mov, .mp4, .webm) hier wählen – sie werden nur in diesem Browser geladen, nichts wird hochgeladen.</p>
+      <label class="btn ghost file-btn">Dateien wählen …<input type="file" id="file-in" accept=".mov,.mp4,.m4v,.webm,video/*" multiple hidden></label>
+      <div class="drop" id="drop">oder hierher ziehen</div>
+      <p class="small" id="repo-info"></p>
+      <ul id="lib-list" class="lib-list"></ul>
+    </aside>
+  </div>
+
+  <dialog id="dlg-export" aria-labelledby="dlg-h">
+    <form method="dialog" class="dlg">
+      <h2 id="dlg-h">Veröffentlichen</h2>
+      <div id="dlg-body"></div>
+      <div class="dlg-actions"><button class="btn ghost" value="close">Schließen</button><button class="btn" id="btn-download" value="default" type="button">inhalte.js herunterladen</button></div>
+    </form>
+  </dialog>
+
+  <script src="data/inhalte.js"></script>
+  <script src="assets/icons.js"></script>
+  <script src="assets/studio.js"></script>
+</body>
+</html>

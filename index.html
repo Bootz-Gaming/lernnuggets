@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Keine externen Verbindungen: keine Web-Fonts, keine CDNs, kein Tracking. blob: nur für die Studio-Vorschau lokaler Videos. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'none'; font-src 'self'">
+  <title>Lernnuggets – Prototyp</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <a class="skip" href="#main">Zum Inhalt springen</a>
+  <header class="topbar">
+    <a href="#/" class="brand" aria-label="Zur Startseite">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-text"><strong id="brand-title">Lernnuggets</strong><small id="brand-sub"></small></span>
+    </a>
+    <span class="proto-badge" title="Nicht produktiver Prototyp">Prototyp</span>
+  </header>
+
+  <main id="main" tabindex="-1"></main>
+
+  <footer class="footer">
+    <p><strong>Prototyp ohne Anmeldung, ohne Tracking, ohne externe Verbindungen.</strong>
+      Quiz-Ergebnisse bleiben nur in diesem Browserfenster und werden beim Schließen verworfen.
+      Alle Inhalte sind Entwürfe und vor Verwendung fachlich zu prüfen.</p>
+    <p><span id="version"></span> · <a href="studio.html">Studio (Inhalte pflegen)</a></p>
+  </footer>
+
+  <script src="data/inhalte.js"></script>
+  <script src="assets/icons.js"></script>
+  <script src="assets/app.js"></script>
+</body>
+</html>
