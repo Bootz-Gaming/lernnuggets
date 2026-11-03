@@ -45,6 +45,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: ffmpeg bereitstellen
+        run: command -v ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
+
       - name: Piper und deutsche Stimme laden
         if: env.ENGINE == 'piper'
         run: |
