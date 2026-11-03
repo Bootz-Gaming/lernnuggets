@@ -13,7 +13,7 @@
   <header class="topbar">
     <a href="index.html" class="brand" aria-label="Zur Lernplattform">
       <span class="brand-mark" aria-hidden="true"></span>
-      <span class="brand-text"><strong>Studio</strong><small>Inhalte und Animationen pflegen</small></span>
+      <span class="brand-text"><strong>Studio</strong><small>Inhalte, Grafiken und Hintergründe pflegen</small></span>
     </a>
     <div class="top-actions">
       <span class="save-state" id="save-state" aria-live="polite"></span>
@@ -24,7 +24,8 @@
 
   <div class="studio-layout">
     <nav class="studio-nav" aria-label="Lernnuggets">
-      <div class="nav-head"><h2>Lernnuggets</h2><button class="ctrl" id="btn-new" title="Neues Lernnugget">＋ Neu</button></div>
+      <div class="nav-head"><h2>Inhalte</h2><button class="ctrl" id="btn-new" title="Neues Lernnugget">＋ Neu</button></div>
+      <button class="settings-btn" id="btn-settings">⚙ Einstellungen &amp; Standard-Hintergrund</button>
       <ul id="nugget-list"></ul>
       <div class="nav-foot">
         <button class="linkbtn" id="btn-reset">Entwurf verwerfen</button>
@@ -34,9 +35,9 @@
     <main id="editor" tabindex="-1"></main>
 
     <aside class="media-lib" aria-labelledby="lib-h">
-      <h2 id="lib-h">Animationen</h2>
-      <p class="small">Eigene Dateien (.mov, .mp4, .webm) hier wählen – sie werden nur in diesem Browser geladen, nichts wird hochgeladen.</p>
-      <label class="btn ghost file-btn">Dateien wählen …<input type="file" id="file-in" accept=".mov,.mp4,.m4v,.webm,video/*" multiple hidden></label>
+      <h2 id="lib-h">Medien</h2>
+      <p class="small">Grafiken (SVG, PNG), Hintergrundbilder (JPG, PNG) und optional Videos (.mov, .mp4) hier wählen – sie werden nur in diesem Browser geladen, nichts wird hochgeladen.</p>
+      <label class="btn ghost file-btn">Dateien wählen …<input type="file" id="file-in" accept=".svg,.png,.jpg,.jpeg,.webp,.mov,.mp4,.m4v,.webm,image/*,video/*" multiple hidden></label>
       <div class="drop" id="drop">oder hierher ziehen</div>
       <p class="small" id="repo-info"></p>
       <ul id="lib-list" class="lib-list"></ul>
@@ -53,6 +54,7 @@
 
   <script src="data/inhalte.js"></script>
   <script src="assets/icons.js"></script>
+  <script src="assets/szene.js"></script>
   <script src="assets/studio.js"></script>
 </body>
 </html>

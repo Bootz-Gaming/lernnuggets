@@ -1,16 +1,18 @@
 /*
  * Studio – Redaktionsoberfläche für die Lernnuggets.
- * Alles läuft im Browser. Eigene Videos werden nur lokal geladen (Blob-URL), nichts wird hochgeladen.
+ * Alles läuft im Browser. Eigene Dateien werden nur lokal geladen (Blob-URL), nichts wird hochgeladen.
  * Ergebnis ist eine neue data/inhalte.js, die über die GitHub-Weboberfläche hochgeladen wird.
  */
 (function () {
   'use strict';
 
   const ICONS = window.LERN_ICONS || {};
+  const SZ = window.LERN_SZENE;
   const KEY_STUDIO = 'lernnuggets-studio';     // sauberer Entwurf (mit media/-Pfaden)
-  const KEY_PREVIEW = 'lernnuggets-entwurf';   // Vorschau (lokale Videos als Blob-URL)
+  const KEY_PREVIEW = 'lernnuggets-entwurf';   // Vorschau (lokale Dateien als Blob-URL)
   const VIDEO_RE = /\.(mov|mp4|m4v|webm)$/i;
-  const ANIMS = [['slide-left', 'Slide von links'], ['slide-right', 'Slide von rechts'], ['pop', 'Pop-up'], ['fade', 'Fade']];
+  const BILD_RE = /\.(svg|png|jpe?g|webp)$/i;
+  const DAUERN = [['', 'automatisch'], ['3', '3 Sekunden'], ['5', '5 Sekunden'], ['10', '10 Sekunden']];
 
   const store = {
     get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
@@ -18,7 +20,7 @@
     del(k) { try { localStorage.removeItem(k); } catch (e) { /* egal */ } }
   };
   const clone = o => JSON.parse(JSON.stringify(o));
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const esc = SZ.esc;
   const fmtS = d => d == null ? '' : (Math.round(d * 10) / 10).toLocaleString('de-DE') + ' s';
   const slug = s => String(s).toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'nugget';
@@ -26,52 +28,77 @@
 
   const published = clone(window.LERN_DATA);
   let data = store.get(KEY_STUDIO) || clone(published);
-  let cur = 0;
+  data.meta = data.meta || {};
+  let cur = data.nuggets.length ? 0 : -1;     // -1 = Einstellungen
 
   // ---------- Medienbibliothek ----------
-  // name -> { name, url, source: 'lokal'|'repo', duration, w, h, ok: null|true|false }
+  // name -> { name, url, source: 'lokal'|'repo', kind: 'bild'|'video', duration, w, h, ok, size, inRepo }
   const lib = new Map();
   const libList = document.getElementById('lib-list');
+  const kindOf = name => VIDEO_RE.test(name) ? 'video' : 'bild';
+  // Pfad aus den Daten → abspielbare URL (lokale Datei hat Vorrang)
+  const urlOf = p => { const e = p && lib.get(fileOf(p)); return e ? e.url : p; };
 
   function probe(entry) {
     entry.ok = null;
-    const v = document.createElement('video');
-    v.muted = true; v.preload = 'auto'; v.playsInline = true;
-    let finished = false;
-    const finish = ok => {
+    let finished = false, t = 0;
+    const finish = (ok, info) => {
       if (finished) return; finished = true; clearTimeout(t);
-      entry.ok = ok && v.videoWidth > 0;
-      if (entry.ok) { entry.duration = v.duration; entry.w = v.videoWidth; entry.h = v.videoHeight; }
-      v.removeAttribute('src'); v.load();
+      entry.ok = ok;
+      if (ok && info) Object.assign(entry, info);
       drawLib(); renderEditor(true);
     };
-    const t = setTimeout(() => finish(false), 10000);
-    v.addEventListener('loadeddata', () => finish(true), { once: true });
+    t = setTimeout(() => finish(false), 10000);
+    if (entry.kind === 'bild') {
+      const im = new Image();
+      im.onload = () => finish(true, { w: im.naturalWidth, h: im.naturalHeight });
+      im.onerror = () => finish(false);
+      im.src = entry.url;
+      return;
+    }
+    const v = document.createElement('video');
+    v.muted = true; v.preload = 'auto'; v.playsInline = true;
+    v.addEventListener('loadeddata', () => {
+      const ok = v.videoWidth > 0;
+      finish(ok, { duration: v.duration, w: v.videoWidth, h: v.videoHeight });
+      v.removeAttribute('src'); v.load();
+    }, { once: true });
     v.addEventListener('error', () => finish(false), { once: true });
     v.src = entry.url;
   }
 
   function addLocalFiles(files) {
-    [...files].filter(f => VIDEO_RE.test(f.name) || /^video\//.test(f.type)).forEach(f => {
+    [...files].filter(f => VIDEO_RE.test(f.name) || BILD_RE.test(f.name)).forEach(f => {
       const old = lib.get(f.name);
       if (old && old.source === 'lokal') URL.revokeObjectURL(old.url);
-      const e = { name: f.name, url: URL.createObjectURL(f), source: 'lokal', size: f.size, inRepo: !!(old && (old.source === 'repo' || old.inRepo)) };
+      const e = { name: f.name, url: URL.createObjectURL(f), source: 'lokal', kind: kindOf(f.name), size: f.size,
+        inRepo: !!(old && (old.source === 'repo' || old.inRepo)) };
       lib.set(f.name, e); probe(e);
     });
-    drawLib();
+    drawLib(); renderEditor(true);
+  }
+
+  function libItem(e) {
+    let st;
+    if (e.ok === null) st = '<span class="st">wird geprüft …</span>';
+    else if (!e.ok) st = e.kind === 'video'
+      ? '<span class="st bad">✕ im Browser nicht abspielbar – vermutlich ProRes. Als H.264 ausgeben oder Grafik verwenden.</span>'
+      : '<span class="st bad">✕ Bild kann nicht geladen werden</span>';
+    else st = `<span class="st good">✓ ${e.kind === 'video' ? fmtS(e.duration) + ' · ' : ''}${e.w}×${e.h}</span>`;
+    const big = e.size > 25 * 1024 * 1024 ? '<span class="st bad">Größer als 25 MB – Web-Upload bei GitHub nicht möglich</span>' : '';
+    const prev = e.ok === false ? '<span class="vthumb-x">!</span>'
+      : e.kind === 'video' ? `<video src="${esc(e.url)}" muted preload="metadata" data-end></video>`
+        : `<img src="${esc(e.url)}" alt="">`;
+    const where = e.source === 'lokal' ? (e.inRepo ? 'lokal · auch im Repository' : 'lokal · noch nicht hochgeladen') : 'im Repository (media/)';
+    return `<li class="lib-item">${prev}<div><div class="nm">${esc(e.name)}</div>${st}<div class="st">${where}</div>${big}</div></li>`;
   }
 
   function drawLib() {
     const items = [...lib.values()].sort((a, b) => a.name.localeCompare(b.name, 'de'));
-    if (!items.length) { libList.innerHTML = '<li class="small">Noch keine Animationen geladen.</li>'; return; }
-    libList.innerHTML = items.map(e => {
-      const st = e.ok === null ? '<span class="st">wird geprüft …</span>'
-        : e.ok ? `<span class="st good">✓ ${fmtS(e.duration)} · ${e.w}×${e.h}</span>`
-          : '<span class="st bad">✕ im Browser nicht abspielbar – vermutlich ProRes/Animation-Codec. Als H.264 ausgeben.</span>';
-      const big = e.size > 25 * 1024 * 1024 ? '<span class="st bad">Größer als 25 MB – Web-Upload bei GitHub nicht möglich</span>' : '';
-      return `<li class="lib-item">${e.ok === false ? '<span class="vthumb-x">!</span>' : `<video src="${esc(e.url)}" muted preload="metadata" data-end></video>`}
-        <div><div class="nm">${esc(e.name)}</div>${st}<div class="st">${e.source === 'lokal' ? (e.inRepo ? 'lokal · auch im Repository' : 'lokal · noch nicht hochgeladen') : 'im Repository (media/)'}</div>${big}</div></li>`;
-    }).join('');
+    if (!items.length) { libList.innerHTML = '<li class="small">Noch keine Dateien geladen.</li>'; return; }
+    const g = items.filter(e => e.kind === 'bild'), v = items.filter(e => e.kind === 'video');
+    libList.innerHTML = (g.length ? `<li class="lib-h">Bilder (${g.length})</li>${g.map(libItem).join('')}` : '')
+      + (v.length ? `<li class="lib-h">Videos (${v.length})</li>${v.map(libItem).join('')}` : '');
     libList.querySelectorAll('video[data-end]').forEach(endFrame);
   }
 
@@ -95,25 +122,36 @@
     fetch(`https://api.github.com/repos/${repo.owner}/${repo.name}/contents/media`)
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
       .then(list => {
-        const vids = list.filter(f => f.type === 'file' && VIDEO_RE.test(f.name));
-        vids.forEach(f => {
+        const files = list.filter(f => f.type === 'file' && (VIDEO_RE.test(f.name) || BILD_RE.test(f.name)));
+        files.forEach(f => {
           const ex = lib.get(f.name);
           if (ex && ex.source === 'lokal') { ex.inRepo = true; return; }
-          const e = { name: f.name, url: 'media/' + f.name, source: 'repo', size: f.size };
+          if (ex) return;
+          const e = { name: f.name, url: 'media/' + f.name, source: 'repo', kind: kindOf(f.name), size: f.size };
           lib.set(f.name, e); probe(e);
         });
-        repoInfo.textContent = `${vids.length} Animation(en) im Repository ${repo.owner}/${repo.name} gefunden.`;
-        drawLib();
+        repoInfo.textContent = `${files.length} Datei(en) im Repository ${repo.owner}/${repo.name} gefunden.`;
+        drawLib(); renderEditor(true);
       })
-      .catch(() => { repoInfo.textContent = 'Repository-Ordner media/ konnte nicht gelesen werden (leer oder privat).'; });
+      .catch(() => { repoInfo.textContent = 'Ordner media/ im Repository ist noch leer.'; });
   } else {
     repoInfo.textContent = 'Lokal geöffnet: Dateien aus media/ werden erst auf GitHub Pages automatisch aufgelistet.';
   }
-  // bereits referenzierte Videos aufnehmen, damit Dauer und Abspielbarkeit sichtbar sind
-  data.nuggets.forEach(n => n.szenen.forEach(sc => {
-    const nm = fileOf(sc.video);
-    if (sc.video && !lib.has(nm)) { const e = { name: nm, url: sc.video, source: 'repo' }; lib.set(nm, e); probe(e); }
-  }));
+  // bereits referenzierte Dateien aufnehmen, damit Status sichtbar ist
+  function referenced(d) {
+    const out = new Set();
+    const bgs = [d.meta.hintergrund];
+    d.nuggets.forEach(n => {
+      bgs.push(n.hintergrund);
+      n.szenen.forEach(sc => { if (sc.video) out.add(sc.video); if (sc.grafik) out.add(sc.grafik); bgs.push(sc.hintergrund); });
+    });
+    bgs.forEach(b => { if (b && b.bild) out.add(b.bild); });
+    return out;
+  }
+  referenced(data).forEach(p => {
+    const nm = fileOf(p);
+    if (!lib.has(nm)) { const e = { name: nm, url: p, source: 'repo', kind: kindOf(nm) }; lib.set(nm, e); probe(e); }
+  });
 
   const fileIn = document.getElementById('file-in');
   fileIn.addEventListener('change', () => { addLocalFiles(fileIn.files); fileIn.value = ''; });
@@ -126,24 +164,38 @@
   // ---------- Speichern ----------
   const saveState = document.getElementById('save-state');
   let saveT = 0;
+  function cleanBg(bg) {
+    if (!bg) return null;
+    if (bg.bild) return { bild: bg.bild, farbe: SZ.normHex(bg.farbe) || '#ffffff' };
+    const f = SZ.normHex(bg.farbe);
+    return f ? { farbe: f } : null;
+  }
   function cleanData(d) {
     const out = clone(d);
+    const mb = cleanBg(out.meta.hintergrund); if (mb) out.meta.hintergrund = mb; else delete out.meta.hintergrund;
     out.nuggets.forEach(n => {
       n.schlagwoerter = (n.schlagwoerter || []).map(s => s.trim()).filter(Boolean);
+      const nb = cleanBg(n.hintergrund); if (nb) n.hintergrund = nb; else delete n.hintergrund;
       n.szenen.forEach(sc => {
-        ['sprechtext', 'video', 'stichwort'].forEach(k => { if (sc[k] === '' || sc[k] == null) delete sc[k]; });
+        ['sprechtext', 'video', 'grafik', 'stichwort'].forEach(k => { if (sc[k] === '' || sc[k] == null) delete sc[k]; });
         if (!sc.video) delete sc.laenge;
+        if (!(+sc.mindestdauer > 0)) delete sc.mindestdauer; else sc.mindestdauer = +sc.mindestdauer;
+        const sb = cleanBg(sc.hintergrund); if (sb) sc.hintergrund = sb; else delete sc.hintergrund;
       });
       if (!n.quiz || !n.quiz.length) delete n.quiz;
     });
     return out;
   }
+  // Vorschau: lokal geladene Dateien als Blob-URL einsetzen
   function previewData() {
     const d = cleanData(data);
-    d.nuggets.forEach(n => n.szenen.forEach(sc => {
-      const e = sc.video && lib.get(fileOf(sc.video));
-      if (e && e.source === 'lokal') sc.video = e.url;
-    }));
+    const loc = p => { const e = p && lib.get(fileOf(p)); return e && e.source === 'lokal' ? e.url : p; };
+    const fixBg = b => { if (b && b.bild) b.bild = loc(b.bild); };
+    fixBg(d.meta.hintergrund);
+    d.nuggets.forEach(n => {
+      fixBg(n.hintergrund);
+      n.szenen.forEach(sc => { if (sc.video) sc.video = loc(sc.video); if (sc.grafik) sc.grafik = loc(sc.grafik); fixBg(sc.hintergrund); });
+    });
     return d;
   }
   const isDirty = () => JSON.stringify(cleanData(data)) !== JSON.stringify(cleanData(published));
@@ -158,12 +210,15 @@
 
   // ---------- Navigation ----------
   const listEl = document.getElementById('nugget-list');
+  const settingsBtn = document.getElementById('btn-settings');
   function renderNav() {
     const kat = Object.fromEntries(data.kategorien.map(k => [k.id, k.name]));
+    settingsBtn.setAttribute('aria-current', cur === -1);
     listEl.innerHTML = data.nuggets.map((n, i) => `<li><button data-i="${i}" aria-current="${i === cur}">
       <span>${esc(n.titel || '(ohne Titel)')}</span><small>${esc(kat[n.kategorie] || '')} · ${n.szenen.length} Szenen${n.freigabestatus === 'freigegeben' ? ' · freigegeben' : ''}</small></button></li>`).join('');
     listEl.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { cur = +b.dataset.i; renderAll(); editor.focus(); }));
   }
+  settingsBtn.addEventListener('click', () => { cur = -1; renderAll(); editor.focus(); });
 
   document.getElementById('btn-new').addEventListener('click', () => {
     let id = 'neues-nugget', k = 2;
@@ -181,54 +236,124 @@
     data = clone(published); store.del(KEY_STUDIO); store.del(KEY_PREVIEW); cur = 0; renderAll(); save();
   });
 
-  // ---------- Editor ----------
+  // ---------- Bausteine ----------
   const editor = document.getElementById('editor');
   const field = (label, f, val, opt = {}) => {
     const attrs = `data-f="${f}" ${opt.ph ? `placeholder="${esc(opt.ph)}"` : ''}`;
     const ctl = opt.area ? `<textarea ${attrs} rows="${opt.rows || 3}">${esc(val)}</textarea>` : `<input ${attrs} value="${esc(val)}">`;
     return `<label class="field ${opt.full ? 'full' : ''}"><span>${label}${opt.hint ? ` <em class="hint">${opt.hint}</em>` : ''}</span>${ctl}</label>`;
   };
+  const images = () => [...lib.values()].filter(e => e.kind === 'bild').sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  const videos = () => [...lib.values()].filter(e => e.kind === 'video').sort((a, b) => a.name.localeCompare(b.name, 'de'));
 
-  function videoOptions(sel) {
-    const items = [...lib.values()].sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  function imageOptions(sel, emptyLabel) {
     const selName = fileOf(sel);
-    let html = `<option value="">– Platzhalter-Icon –</option>`;
+    let html = `<option value="">${emptyLabel}</option>`;
     if (sel && !lib.has(selName)) html += `<option value="${esc(sel)}" selected>${esc(selName)} (nicht gefunden)</option>`;
-    html += items.map(e => `<option value="media/${esc(e.name)}" ${e.name === selName ? 'selected' : ''} ${e.ok === false ? 'disabled' : ''}>${esc(e.name)}${e.duration ? ' · ' + fmtS(e.duration) : ''}${e.ok === false ? ' (nicht abspielbar)' : ''}</option>`).join('');
+    return html + images().map(e => `<option value="media/${esc(e.name)}" ${e.name === selName ? 'selected' : ''} ${e.ok === false ? 'disabled' : ''}>${esc(e.name)}</option>`).join('');
+  }
+
+  // Bildinhalt einer Szene: Platzhalter | Grafik | Video
+  function contentOptions(sc) {
+    const val = sc.video ? 'v:' + sc.video : sc.grafik ? 'g:' + sc.grafik : '';
+    const opt = (v, label, dis) => `<option value="${esc(v)}" ${v === val ? 'selected' : ''} ${dis ? 'disabled' : ''}>${esc(label)}</option>`;
+    let html = opt('', '– Platzhalter-Icon –');
+    const missing = val && !lib.has(fileOf(val.slice(2)));
+    if (missing) html += opt(val, fileOf(val.slice(2)) + ' (nicht gefunden)');
+    const g = images(), v = videos();
+    if (g.length) html += `<optgroup label="Grafiken (Animation wählbar)">${g.map(e => opt('g:media/' + e.name, e.name, e.ok === false)).join('')}</optgroup>`;
+    if (v.length) html += `<optgroup label="Fertige Videos">${v.map(e => opt('v:media/' + e.name, `${e.name}${e.duration ? ' · ' + fmtS(e.duration) : ''}${e.ok === false ? ' (nicht abspielbar)' : ''}`, e.ok === false)).join('')}</optgroup>`;
     return html;
   }
 
-  function scenePreview(sc) {
-    if (!sc.video) return `<div class="scene-prev" title="Platzhalter-Icon">${ICONS[sc.icon] || ''}<span class="badge">Platzhalter</span></div>`;
-    const e = lib.get(fileOf(sc.video));
-    const url = e ? e.url : sc.video;
-    const d = (e && e.duration) || sc.laenge;
-    return `<div class="scene-prev" title="Klicken zum Abspielen"><video src="${esc(url)}" muted playsinline preload="metadata" data-end></video><span class="badge">${d ? fmtS(d) : 'Video'}</span></div>`;
+  // Hintergrund-Editor; erben = Bezeichnung der geerbten Ebene oder null (Standard-Ebene)
+  function bgEditor(bg, erben, scope) {
+    const mode = bg && bg.bild !== undefined ? 'bild' : bg && SZ.normHex(bg.farbe) ? 'farbe' : (erben ? 'erben' : 'farbe');
+    const farbe = (bg && SZ.normHex(bg.farbe)) || '#ffffff';
+    return `<div class="bg-ed" data-bg="${scope}">
+      <div class="bg-modes" role="radiogroup" aria-label="Hintergrund">
+        ${erben ? `<label><input type="radio" name="bgm-${scope}" value="erben" ${mode === 'erben' ? 'checked' : ''}> ${erben}</label>` : ''}
+        <label><input type="radio" name="bgm-${scope}" value="farbe" ${mode === 'farbe' ? 'checked' : ''}> Farbe</label>
+        <label><input type="radio" name="bgm-${scope}" value="bild" ${mode === 'bild' ? 'checked' : ''}> Bild</label>
+      </div>
+      <div class="bg-row" ${mode === 'erben' ? 'hidden' : ''}>
+        <input type="color" data-bgf="picker" value="${farbe}" aria-label="Farbe wählen">
+        <input data-bgf="hex" value="${farbe}" maxlength="7" aria-label="Hex-Wert" placeholder="#ffffff" class="hex">
+        ${mode === 'bild' ? `<select data-bgf="bild" aria-label="Hintergrundbild">${imageOptions(bg && bg.bild, '– Bild wählen –')}</select>` : ''}
+      </div>
+      ${mode === 'bild' ? '<p class="hint-line">Die Farbe dient als Rückfall, solange das Bild lädt. Stichwörter erscheinen auf Bildern auf einer hellen Plakette.</p>' : ''}
+    </div>`;
+  }
+
+  function bindBg(root, get, set, onChange) {
+    const box = root;
+    box.querySelectorAll('input[type="radio"]').forEach(r => r.addEventListener('change', () => {
+      const old = get() || {};
+      const farbe = SZ.normHex(old.farbe) || '#ffffff';
+      if (r.value === 'erben') set(null);
+      else if (r.value === 'farbe') set({ farbe });
+      else set({ bild: old.bild || '', farbe });
+      onChange(true);
+    }));
+    const picker = box.querySelector('[data-bgf="picker"]'), hex = box.querySelector('[data-bgf="hex"]'), bild = box.querySelector('[data-bgf="bild"]');
+    if (picker) picker.addEventListener('input', () => { hex.value = picker.value; set(Object.assign({}, get() || {}, { farbe: picker.value })); onChange(false); });
+    if (hex) hex.addEventListener('input', () => {
+      const v = SZ.normHex(hex.value);
+      hex.classList.toggle('invalid', !v);
+      if (v) { picker.value = v; set(Object.assign({}, get() || {}, { farbe: v })); onChange(false); }
+    });
+    if (bild) bild.addEventListener('change', () => { set(Object.assign({}, get() || {}, { bild: bild.value })); onChange(false); });
+  }
+
+  // Mini-Bühne wie im Player: Hintergrund + Bildinhalt + Stichwort
+  function stagePreview(n, sc) {
+    const bg = SZ.hintergrund(data.meta, n, sc);
+    let inner;
+    if (sc.video) {
+      const e = lib.get(fileOf(sc.video));
+      inner = `<video src="${esc(urlOf(sc.video))}" muted playsinline preload="metadata" data-end></video>`;
+      if (e && e.duration) inner += `<span class="badge">Video · ${fmtS(e.duration)}</span>`;
+    } else {
+      inner = `<div class="mini-visual">${SZ.visualHTML(sc, ICONS, { urlFn: urlOf })}</div>`;
+    }
+    return `<div class="mini-stage" data-ton="${SZ.ton(bg)}" style="${SZ.bgStyle(bg, urlOf)}" title="Klicken zum Abspielen">
+      ${inner}${sc.stichwort ? `<div class="mini-word">${esc(sc.stichwort)}</div>` : ''}</div>`;
   }
 
   function sceneWarn(sc) {
-    if (!sc.video) return '';
-    const e = lib.get(fileOf(sc.video));
-    if (!e) return `<div class="warn">Datei „${esc(fileOf(sc.video))}“ nicht gefunden. Rechts wählen oder in media/ hochladen.</div>`;
-    if (e.ok === false) return '<div class="warn">Diese Datei kann im Browser nicht abgespielt werden. In Media Encoder als H.264 (.mp4 oder .mov) ausgeben.</div>';
+    const p = sc.video || sc.grafik;
+    if (!p) return '';
+    const e = lib.get(fileOf(p));
+    if (!e) return `<div class="warn">Datei „${esc(fileOf(p))}“ nicht gefunden. Rechts laden oder in media/ hochladen.</div>`;
+    if (e.ok === false) return '<div class="warn">Diese Datei kann im Browser nicht angezeigt werden.</div>';
     if (e.source === 'lokal' && !e.inRepo) return '<div class="ok-note">Lokal geladen – beim Veröffentlichen in den Ordner media/ hochladen.</div>';
     return '';
   }
 
+  // ---------- Editor ----------
   function renderEditor(soft) {
-    const n = data.nuggets[cur];
-    if (!n) { editor.innerHTML = '<div class="ed-card">Kein Lernnugget vorhanden. Links „＋ Neu“ wählen.</div>'; return; }
     if (soft && editor.contains(document.activeElement) && /input|textarea/i.test(document.activeElement.tagName)) {
-      // nur Vorschauen/Hinweise aktualisieren, um die Eingabe nicht zu stören
-      editor.querySelectorAll('.scene').forEach((el, k) => {
+      // nur Auswahllisten/Hinweise aktualisieren, damit die Eingabe nicht gestört wird
+      const n = data.nuggets[cur];
+      if (n) editor.querySelectorAll('.scene').forEach((el, k) => {
         const sc = n.szenen[k]; if (!sc) return;
-        el.querySelector('[data-sf="video"]').innerHTML = videoOptions(sc.video);
-        el.querySelector('.warn-slot').innerHTML = sceneWarn(sc);
+        const s = el.querySelector('[data-sf="inhalt"]'); if (s) s.innerHTML = contentOptions(sc);
+        const w = el.querySelector('.warn-slot'); if (w) w.innerHTML = sceneWarn(sc);
       });
       return;
     }
+    if (cur === -1) return renderSettings();
+    const n = data.nuggets[cur];
+    if (!n) { editor.innerHTML = '<div class="ed-card">Kein Lernnugget vorhanden. Links „＋ Neu“ wählen.</div>'; return; }
     const katOpts = data.kategorien.map(k => `<option value="${k.id}" ${k.id === n.kategorie ? 'selected' : ''}>${esc(k.name)}</option>`).join('');
     const iconOpts = sel => Object.keys(ICONS).map(k => `<option ${k === sel ? 'selected' : ''}>${k}</option>`).join('');
+    const animOpts = sel => SZ.ANIMATIONEN.map(([v, l]) => `<option value="${v}" ${v === (sel || 'fade') ? 'selected' : ''}>${l}</option>`).join('');
+    const durOpts = sel => {
+      const s = sel ? String(sel) : '';
+      const known = DAUERN.some(([v]) => v === s);
+      return DAUERN.map(([v, l]) => `<option value="${v}" ${v === s ? 'selected' : ''}>${l}</option>`).join('')
+        + `<option value="frei" ${!known ? 'selected' : ''}>eigene Angabe …</option>`;
+    };
     editor.innerHTML = `
       <section class="ed-card">
         <h2>Allgemein <button class="linkbtn" id="del-nugget">Lernnugget löschen</button></h2>
@@ -243,12 +368,13 @@
           <label class="field"><span>Freigabestatus</span><select data-f="freigabestatus">
             <option value="entwurf" ${n.freigabestatus !== 'freigegeben' ? 'selected' : ''}>Entwurf – fachlich ungeprüft</option>
             <option value="freigegeben" ${n.freigabestatus === 'freigegeben' ? 'selected' : ''}>Fachlich freigegeben</option></select></label>
-          ${field('ID', 'id', n.id, { hint: 'Teil der Adresse und der Audiodateinamen' })}
+          ${field('ID', 'id', n.id, { hint: 'Teil der Adresse und der Dateinamen' })}
+          <div class="field full"><span>Hintergrund für alle Szenen dieses Lernnuggets</span>${bgEditor(n.hintergrund, 'Standard der Plattform', 'n')}</div>
         </div>
       </section>
 
       <section class="ed-card">
-        <h2>Szenen <span class="small" style="margin:0">Eine Szene läuft, bis Sprecher und Animation fertig sind.</span></h2>
+        <h2>Szenen <span class="small" style="margin:0">Eine Szene läuft, bis Sprecher, Mindestdauer und ggf. Video fertig sind.</span></h2>
         <div class="scenes">${n.szenen.map((sc, k) => `
           <div class="scene" data-k="${k}">
             <div class="scene-head"><strong>Szene ${k + 1}</strong>
@@ -258,15 +384,21 @@
                 <button data-act="dup" title="Duplizieren">⧉</button>
                 <button data-act="del" ${n.szenen.length === 1 ? 'disabled' : ''} title="Löschen">✕</button>
               </div></div>
-            <div>${scenePreview(sc)}</div>
+            <div class="scene-left">${stagePreview(n, sc)}<p class="hint-line">Vorschau anklicken = Animation abspielen</p></div>
             <div class="scene-fields">
-              <label class="field"><span>Animation</span><select data-sf="video">${videoOptions(sc.video)}</select></label>
+              <label class="field"><span>Bildinhalt</span><select data-sf="inhalt">${contentOptions(sc)}</select></label>
               <div class="warn-slot">${sceneWarn(sc)}</div>
+              ${sc.video ? '<p class="hint-line">Fertiges Video: Bewegung und Länge kommen aus der Datei. Der Hintergrund ist rund um das Video sichtbar.</p>' : `
+              <div class="inline">
+                <label class="field"><span>Animation</span><select data-sf="animation">${animOpts(sc.animation)}</select></label>
+                <label class="field"><span>Mindestdauer</span><select data-sf="dauerwahl">${durOpts(sc.mindestdauer)}</select></label>
+                <label class="field dauer-frei" ${DAUERN.some(([v]) => v === String(sc.mindestdauer || '')) ? 'hidden' : ''}><span>Sekunden</span><input type="number" min="1" max="60" step="0.5" data-sf="mindestdauer" value="${esc(sc.mindestdauer || '')}"></label>
+              </div>
+              ${sc.grafik ? '' : `<label class="field"><span>Platzhalter-Icon</span><select data-sf="icon">${iconOpts(sc.icon)}</select></label>`}`}
               <label class="field"><span>Stichwort auf der Bühne</span><input data-sf="stichwort" value="${esc(sc.stichwort)}"></label>
               <label class="field"><span>Sprechertext / Untertitel</span><textarea data-sf="text" rows="3">${esc(sc.text)}</textarea></label>
               <label class="field"><span>Aussprache <em class="hint">optional, z. B. „eins, eins, zwei“ statt „112“</em></span><input data-sf="sprechtext" value="${esc(sc.sprechtext)}"></label>
-              ${sc.video ? '' : `<div class="inline"><label class="field"><span>Platzhalter-Icon</span><select data-sf="icon">${iconOpts(sc.icon)}</select></label>
-                <label class="field"><span>Einblendung</span><select data-sf="animation">${ANIMS.map(([v, l]) => `<option value="${v}" ${v === sc.animation ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>`}
+              <div class="field"><span>Hintergrund dieser Szene</span>${bgEditor(sc.hintergrund, 'wie Lernnugget', 's' + k)}</div>
             </div>
           </div>`).join('')}
         </div>
@@ -292,11 +424,47 @@
     bindEditor(n);
   }
 
-  function bindEditor(n) {
-    editor.querySelectorAll('video[data-end]').forEach(endFrame);
-    editor.querySelectorAll('.scene-prev video').forEach(v => v.parentElement.addEventListener('click', () => {
-      v.currentTime = 0; v.play().catch(() => {}); v.onended = () => endFrame(v);
+  function renderSettings() {
+    const m = data.meta;
+    editor.innerHTML = `
+      <section class="ed-card">
+        <h2>Einstellungen der Plattform</h2>
+        <div class="fgrid">
+          ${field('Titel', 'm-titel', m.titel)}
+          ${field('Untertitel', 'm-untertitel', m.untertitel)}
+          <label class="field"><span>Akzentfarbe <em class="hint">Buttons, Linien, Platzhalter-Icons</em></span>
+            <div class="bg-row"><input type="color" data-mf="akzent-p" value="${SZ.normHex(m.akzentfarbe) || '#0b6fb8'}"><input class="hex" data-mf="akzent" value="${esc(SZ.normHex(m.akzentfarbe) || '#0b6fb8')}" maxlength="7"></div></label>
+          <div class="field full"><span>Standard-Hintergrund für alle Lernnuggets</span>${bgEditor(m.hintergrund, null, 'm')}</div>
+        </div>
+        <p class="hint-line">Reihenfolge: Hintergrund der Szene → des Lernnuggets → dieser Standard.</p>
+      </section>
+      <section class="ed-card"><h2>Vorschau</h2><div class="settings-prev">${stagePreview(null, { icon: 'report', animation: 'pop', stichwort: 'Beispiel-Stichwort' })}</div></section>`;
+    editor.querySelectorAll('[data-f]').forEach(el => el.addEventListener('input', () => {
+      m[el.dataset.f.slice(2)] = el.value; save();
     }));
+    const ap = editor.querySelector('[data-mf="akzent-p"]'), ah = editor.querySelector('[data-mf="akzent"]');
+    const setAkzent = v => { m.akzentfarbe = v; document.documentElement.style.setProperty('--accent', v); save(); };
+    ap.addEventListener('input', () => { ah.value = ap.value; setAkzent(ap.value); });
+    ah.addEventListener('input', () => { const v = SZ.normHex(ah.value); ah.classList.toggle('invalid', !v); if (v) { ap.value = v; setAkzent(v); } });
+    bindBg(editor.querySelector('[data-bg="m"]'), () => m.hintergrund, v => { m.hintergrund = v || { farbe: '#ffffff' }; save(); },
+      full => { if (full) renderEditor(); else editor.querySelector('.settings-prev').innerHTML = stagePreview(null, { icon: 'report', animation: 'pop', stichwort: 'Beispiel-Stichwort' }); wireStages(); });
+    wireStages();
+  }
+
+  function wireStages() {
+    editor.querySelectorAll('.mini-stage').forEach(st => {
+      st.querySelectorAll('video[data-end]').forEach(endFrame);
+      st.addEventListener('click', () => {
+        const v = st.querySelector('video');
+        if (v) { v.currentTime = 0; v.play().catch(() => {}); v.onended = () => endFrame(v); return; }
+        const a = st.querySelector('.mini-visual > div');
+        if (a) { const c = a.className; a.className = ''; void a.offsetWidth; a.className = c; }
+      });
+    });
+  }
+
+  function bindEditor(n) {
+    wireStages();
     editor.querySelectorAll('[data-f]').forEach(el => el.addEventListener('input', () => {
       const f = el.dataset.f;
       if (f === 'schlagwoerter') n.schlagwoerter = el.value.split(',');
@@ -320,23 +488,37 @@
     });
     editor.querySelector('#del-nugget').addEventListener('click', () => {
       if (!confirm(`„${n.titel}“ wirklich löschen?`)) return;
-      data.nuggets.splice(cur, 1); cur = Math.max(0, cur - 1); renderAll(); save();
+      data.nuggets.splice(cur, 1); cur = Math.max(-1, Math.min(cur, data.nuggets.length - 1)); renderAll(); save();
     });
+    // Hintergrund des Lernnuggets: wirkt auf alle Szenen-Vorschauen
+    bindBg(editor.querySelector('[data-bg="n"]'), () => n.hintergrund, v => { if (v) n.hintergrund = v; else delete n.hintergrund; save(); },
+      full => { if (full) renderEditor(); else refreshStages(n); });
 
     editor.querySelectorAll('.scene').forEach(el => {
       const k = +el.dataset.k, sc = n.szenen[k];
+      const refresh = () => { el.querySelector('.scene-left').firstElementChild.outerHTML = stagePreview(n, sc); wireStages(); };
       el.querySelectorAll('[data-sf]').forEach(inp => inp.addEventListener(inp.tagName === 'SELECT' ? 'change' : 'input', () => {
         const f = inp.dataset.sf;
-        sc[f] = inp.value;
-        if (f === 'video') {
-          const e = lib.get(fileOf(inp.value));
-          if (e && e.duration) sc.laenge = Math.round(e.duration * 10) / 10; else delete sc.laenge;
-          renderEditor();
-        } else if (f === 'icon' || f === 'animation') {
-          el.querySelector('.scene-prev').outerHTML = scenePreview(sc);
+        if (f === 'inhalt') {
+          const v = inp.value;
+          delete sc.video; delete sc.grafik; delete sc.laenge;
+          if (v.startsWith('v:')) { sc.video = v.slice(2); const e = lib.get(fileOf(sc.video)); if (e && e.duration) sc.laenge = Math.round(e.duration * 10) / 10; }
+          else if (v.startsWith('g:')) sc.grafik = v.slice(2);
+          save(); return renderEditor();
         }
+        if (f === 'dauerwahl') {
+          const frei = el.querySelector('.dauer-frei');
+          if (inp.value === 'frei') { frei.hidden = false; frei.querySelector('input').focus(); }
+          else { frei.hidden = true; if (inp.value) sc.mindestdauer = +inp.value; else delete sc.mindestdauer; }
+          return save();
+        }
+        if (f === 'mindestdauer') { const v = parseFloat(inp.value); if (v > 0) sc.mindestdauer = v; else delete sc.mindestdauer; return save(); }
+        sc[f] = inp.value;
+        if (['icon', 'animation', 'stichwort'].includes(f)) refresh();
         save();
       }));
+      bindBg(el.querySelector(`[data-bg="s${k}"]`), () => sc.hintergrund, v => { if (v) sc.hintergrund = v; else delete sc.hintergrund; save(); },
+        full => { if (full) renderEditor(); else refresh(); });
       el.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => {
         const a = b.dataset.act, s = n.szenen;
         if (a === 'up') [s[k - 1], s[k]] = [s[k], s[k - 1]];
@@ -370,6 +552,14 @@
     });
   }
 
+  function refreshStages(n) {
+    editor.querySelectorAll('.scene').forEach(el => {
+      const sc = n.szenen[+el.dataset.k];
+      el.querySelector('.scene-left').firstElementChild.outerHTML = stagePreview(n, sc);
+    });
+    wireStages();
+  }
+
   function renderAll() { renderNav(); renderEditor(); }
 
   // ---------- Vorschau ----------
@@ -384,14 +574,23 @@
   function validate() {
     const issues = [];
     const ids = new Set();
+    const checkFile = (p, where) => {
+      if (!p) return;
+      const e = lib.get(fileOf(p));
+      if (!e) issues.push(`${where}: Datei „${fileOf(p)}“ nicht gefunden.`);
+      else if (e.ok === false) issues.push(`${where}: „${e.name}“ kann nicht angezeigt werden.`);
+    };
+    if (data.meta.hintergrund && data.meta.hintergrund.bild !== undefined && !data.meta.hintergrund.bild) issues.push('Standard-Hintergrund: Bild ausgewählt, aber keine Datei gewählt.');
+    checkFile(data.meta.hintergrund && data.meta.hintergrund.bild, 'Standard-Hintergrund');
     data.nuggets.forEach(n => {
       const t = n.titel || n.id;
       if (!n.titel) issues.push(`Ein Lernnugget hat keinen Titel (${n.id}).`);
       if (ids.has(n.id)) issues.push(`Die ID „${n.id}“ ist doppelt vergeben.`); ids.add(n.id);
+      checkFile(n.hintergrund && n.hintergrund.bild, `„${t}“, Hintergrund`);
       n.szenen.forEach((sc, k) => {
         if (!String(sc.text || '').trim()) issues.push(`„${t}“, Szene ${k + 1}: Sprechertext fehlt.`);
-        const e = sc.video && lib.get(fileOf(sc.video));
-        if (e && e.ok === false) issues.push(`„${t}“, Szene ${k + 1}: Video nicht abspielbar (${e.name}).`);
+        checkFile(sc.video || sc.grafik, `„${t}“, Szene ${k + 1}`);
+        checkFile(sc.hintergrund && sc.hintergrund.bild, `„${t}“, Szene ${k + 1}, Hintergrund`);
       });
       (n.quiz || []).forEach((q, k) => {
         if (!q.frage.trim() || q.antworten.some(a => !String(a).trim())) issues.push(`„${t}“, Quizfrage ${k + 1}: Frage oder Antwort leer.`);
@@ -403,17 +602,15 @@
   const dlg = document.getElementById('dlg-export');
   document.getElementById('btn-export').addEventListener('click', () => {
     const issues = validate();
-    const used = new Set();
-    data.nuggets.forEach(n => n.szenen.forEach(sc => { if (sc.video) used.add(fileOf(sc.video)); }));
-    const toUpload = [...used].filter(nm => { const e = lib.get(nm); return e && e.source === 'lokal' && !e.inRepo; });
+    const toUpload = [...referenced(cleanData(data))].map(fileOf).filter(nm => { const e = lib.get(nm); return e && e.source === 'lokal' && !e.inRepo; });
     const gh = repo ? `https://github.com/${repo.owner}/${repo.name}` : null;
     document.getElementById('dlg-body').innerHTML = `
       ${issues.length ? `<div class="warn"><strong>Bitte prüfen:</strong><ul>${issues.map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>` : '<div class="ok-note">Keine Probleme gefunden.</div>'}
       <ol>
         <li><strong>inhalte.js herunterladen</strong> (Button unten).</li>
-        <li>Auf GitHub ${gh ? `<a href="${gh}/upload/main/data" target="_blank" rel="noopener">den Ordner <code>data</code> öffnen</a>` : 'den Ordner <code>data</code> öffnen'}, „Add file“ → „Upload files“, die Datei <code>inhalte.js</code> hineinziehen und „Commit changes“ klicken. Die alte Datei wird ersetzt.</li>
-        ${toUpload.length ? `<li><strong>Neue Animationen hochladen:</strong> ${gh ? `<a href="${gh}/upload/main/media" target="_blank" rel="noopener">Ordner <code>media</code></a>` : 'Ordner <code>media</code>'} → „Upload files“: ${toUpload.map(x => `<code>${esc(x)}</code>`).join(', ')}</li>` : ''}
-        <li>Nach etwa 2–3 Minuten ist die Seite aktualisiert. Geänderte Sprechertexte werden dabei automatisch neu vertont (Fortschritt im Reiter „Actions“).</li>
+        <li>Auf GitHub ${gh ? `<a href="${gh}/upload/main/data" target="_blank" rel="noopener">den Ordner <code>data</code> öffnen</a>` : 'den Ordner <code>data</code> öffnen'} → „Add file“ → „Upload files“, die Datei <code>inhalte.js</code> hineinziehen und „Commit changes“ klicken. Die alte Datei wird ersetzt.</li>
+        ${toUpload.length ? `<li><strong>Neue Dateien hochladen:</strong> ${gh ? `<a href="${gh}/upload/main/media" target="_blank" rel="noopener">Ordner <code>media</code></a>` : 'Ordner <code>media</code>'} → „Upload files“: ${toUpload.map(x => `<code>${esc(x)}</code>`).join(', ')}</li>` : ''}
+        <li>Nach etwa 3–5 Minuten ist alles aktuell: Seite, Sprecher für geänderte Texte und die MP4-Downloads (Fortschritt im Reiter „Actions“).</li>
       </ol>`;
     dlg.showModal();
   });
@@ -427,6 +624,8 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   });
 
+  const akz = SZ.normHex(data.meta.akzentfarbe);
+  if (akz) document.documentElement.style.setProperty('--accent', akz);
   window.addEventListener('beforeunload', () => store.set(KEY_STUDIO, data));
   renderAll(); save();
 })();

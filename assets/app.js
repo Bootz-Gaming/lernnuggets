@@ -1,7 +1,8 @@
 /*
  * Lernnuggets – statischer Prototyp (Handlungsplan Nr. 13–16)
  * Läuft auf GitHub Pages oder direkt aus dem Ordner. Keine Anmeldung, kein Tracking,
- * keine externen Verbindungen. Eigene Animationen (.mov/.mp4/.webm) pro Szene über das Feld "video".
+ * keine externen Verbindungen. Pro Szene: Grafik (SVG/PNG) mit wählbarer Animation oder eigenes Video,
+ * Hintergrund als Farbe oder Bild (Standard → Lernnugget → Szene).
  */
 (function () {
   'use strict';
@@ -14,6 +15,10 @@
   }
   const DATA = loadDraft() || window.LERN_DATA;
   const ICONS = window.LERN_ICONS || {};
+  const SZ = window.LERN_SZENE;
+  const DL = window.LERN_DOWNLOADS || {};   // von GitHub erzeugte MP4-Downloads (downloads/index.js)
+  const akzent = SZ.normHex(DATA.meta.akzentfarbe);
+  if (akzent) document.documentElement.style.setProperty('--accent', akzent);
   const main = document.getElementById('main');
   const katName = Object.fromEntries(DATA.kategorien.map(k => [k.id, k.name]));
   const STATUS = { entwurf: 'Entwurf – fachlich ungeprüft', freigegeben: 'Fachlich freigegeben' };
@@ -37,7 +42,7 @@
   const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ß/g, 'ss');
   const icon = name => ICONS[name] || ICONS.report || '';
   const sceneSeconds = sc => Math.max(3.5, sc.text.length / 14 + 1.2); // Lesetempo für Untertitel ohne Ton
-  const nuggetSeconds = n => n.szenen.reduce((s, sc) => s + Math.max(sc.laenge || 0, sc.dauer || sceneSeconds(sc)), 0);
+  const nuggetSeconds = n => n.szenen.reduce((s, sc) => s + Math.max(sc.laenge || 0, sc.mindestdauer || 0, sc.dauer || sceneSeconds(sc)), 0);
 
   // Video auf den letzten Frame setzen (Endzustand der Animation als Standbild)
   function endFrame(v) {
@@ -45,8 +50,8 @@
     if (v.readyState >= 1) seek(); else v.addEventListener('loadedmetadata', seek, { once: true });
   }
   function thumb(sc) {
-    if (!sc.video) return icon(sc.icon);
-    return `<video class="thumb-video" src="${esc(sc.video)}" muted playsinline preload="metadata"></video>`;
+    if (sc.video) return `<video class="thumb-video" src="${esc(sc.video)}" muted playsinline preload="metadata"></video>`;
+    return SZ.visualHTML(sc, ICONS, { animieren: false });
   }
   function wireThumbs(root) {
     root.querySelectorAll('video.thumb-video').forEach(v => {
@@ -128,7 +133,7 @@
     }
     grid.innerHTML = list.map(n => `
       <a class="card" href="#/nugget/${n.id}">
-        <div class="card-thumb" data-icon="${esc(n.szenen[0].icon)}">${thumb(n.szenen[0])}<span class="dur">${n.szenen.length} Szenen · ${fmtDur(nuggetSeconds(n))}</span></div>
+        <div class="card-thumb" data-icon="${esc(n.szenen[0].icon)}" style="${SZ.bgStyle(SZ.hintergrund(DATA.meta, n, n.szenen[0]))}">${thumb(n.szenen[0])}<span class="dur">${n.szenen.length} Szenen · ${fmtDur(nuggetSeconds(n))}</span></div>
         <div class="card-body">
           <div class="meta"><span class="tag">${esc(katName[n.kategorie])}</span><span class="status ${n.freigabestatus}">${n.freigabestatus === 'freigegeben' ? 'Freigegeben' : 'Entwurf'}</span></div>
           <h2>${highlight(n.titel, q)}</h2>
@@ -169,6 +174,7 @@
               <dt>ID</dt><dd><code>${esc(n.id)}</code></dd>
             </dl>
           </div>
+          ${downloadPanel(n)}
         </aside>
         ${n.quiz && n.quiz.length ? '<section class="quiz" id="quiz" aria-labelledby="quiz-h"></section>' : ''}
       </div>
@@ -179,6 +185,15 @@
 
     player = new Player(main.querySelector('#player'), n);
     if (n.quiz && n.quiz.length) renderQuiz(main.querySelector('#quiz'), n);
+  }
+
+  function downloadPanel(n) {
+    const d = DL[n.id];
+    if (!d || VORSCHAU) return VORSCHAU ? '<div class="panel"><h2>Video</h2><p class="small-note">Der MP4-Download wird nach dem Veröffentlichen automatisch erzeugt.</p></div>' : '';
+    const mb = d.groesse ? ` (${(d.groesse / 1048576).toLocaleString('de-DE', { maximumFractionDigits: 1 })} MB)` : '';
+    return `<div class="panel"><h2>Video</h2>
+      <a class="btn dl-btn" href="${esc(d.mp4)}" download>Video herunterladen (MP4)${mb}</a>
+      <p class="small-note">Mit Sprecher; Untertitel im Player zuschaltbar. ${d.srt ? `<a href="${esc(d.srt)}" download>Untertitel als .srt</a>` : ''}</p></div>`;
   }
 
   // ---------- Sprachausgabe ----------
@@ -267,6 +282,10 @@
       const sc = this.n.szenen[i];
       const vis = this.$('#visual');
       const anim = 'anim-' + (sc.animation || 'fade');
+      const bg = SZ.hintergrund(DATA.meta, this.n, sc);
+      const stage = this.$('#stage');
+      stage.setAttribute('style', SZ.bgStyle(bg));
+      stage.dataset.ton = SZ.ton(bg);
       this.video = null; this.vDone = true; this.vFrac = 1;
       if (sc.video) {
         // Eigene AE-Animation: Bewegung steckt im Video, daher keine zusätzliche CSS-Animation
@@ -277,7 +296,7 @@
         const tok = this.token;
         v.addEventListener('error', () => {
           console.warn('Video nicht abspielbar (Codec?):', sc.video);
-          vis.innerHTML = `<div class="${anim}">${icon(sc.icon)}</div><p class="video-error">Video „${esc(sc.video)}“ kann in diesem Browser nicht abgespielt werden (z. B. ProRes). Bitte als H.264 ausgeben.</p>`;
+          vis.innerHTML = `${SZ.visualHTML(Object.assign({}, sc, { video: null }), ICONS)}<p class="video-error">Video „${esc(sc.video)}“ kann in diesem Browser nicht abgespielt werden (z. B. ProRes). Bitte als H.264 ausgeben.</p>`;
           if (this.video === v) { this.video = null; this.vDone = true; this.vFrac = 1; if (tok === this.token) this.check(); }
         }, { once: true });
         v.addEventListener('timeupdate', () => { if (this.video === v && v.duration) { this.vFrac = v.currentTime / v.duration; this.paint(); } });
@@ -286,7 +305,20 @@
         else endFrame(v);
       } else {
         vis.classList.remove('has-video');
-        vis.innerHTML = `<div class="${anim}">${icon(sc.icon)}</div>`;
+        vis.innerHTML = SZ.visualHTML(sc, ICONS);
+        const img = vis.querySelector('img');
+        if (img) img.addEventListener('error', () => { vis.innerHTML = `<div class="${anim}">${icon(sc.icon)}</div>`; }, { once: true });
+        // Mindestdauer (z. B. 3, 5 oder 10 s): Szene läuft mindestens so lange
+        if (this.playing && sc.mindestdauer > 0) {
+          this.vDone = false; this.vFrac = 0;
+          const tok = this.token, t0 = performance.now(), ms = sc.mindestdauer * 1000;
+          const tick = () => {
+            if (tok !== this.token) return;
+            this.vFrac = Math.min(1, (performance.now() - t0) / ms); this.paint();
+            if (this.vFrac >= 1) { this.vDone = true; this.check(); } else this.mraf = requestAnimationFrame(tick);
+          };
+          this.mraf = requestAnimationFrame(tick);
+        }
       }
       const w = this.$('#word');
       w.className = 'stage-word word-in'; w.textContent = sc.stichwort || ''; w.hidden = !sc.stichwort;
@@ -315,7 +347,7 @@
 
     stopMedia() {
       this.token++;
-      cancelAnimationFrame(this.raf);
+      cancelAnimationFrame(this.raf); cancelAnimationFrame(this.mraf);
       clearTimeout(this.timer);
       if (this.audio) { this.audio.pause(); this.audio.removeAttribute('src'); this.audio.load(); this.audio = null; }
       if (this.video) { this.video.pause(); }

@@ -1,6 +1,7 @@
 # Läuft bei jeder Änderung im Repository (auch bei Uploads über die GitHub-Weboberfläche):
 #   1. erzeugt fehlende/geänderte Sprecherdateien (nur Szenen mit neuem Text)
-#   2. veröffentlicht die Website über GitHub Pages
+#   2. baut die MP4-Downloads (nur geänderte Lernnuggets, Zwischenspeicher über actions/cache)
+#   3. veröffentlicht die Website über GitHub Pages
 # Manuell: GitHub > Actions > "Veröffentlichen" > Run workflow (dort Engine wählen).
 #
 # Sprachausgabe:
@@ -45,8 +46,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: ffmpeg bereitstellen
-        run: command -v ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
+      - name: Werkzeuge bereitstellen (ffmpeg, rsvg-convert, Schrift, Pillow)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg librsvg2-bin fonts-dejavu-core
+          python3 -m pip install --quiet --break-system-packages pillow || python3 -m pip install --quiet pillow
 
       - name: Piper und deutsche Stimme laden
         if: env.ENGINE == 'piper'
@@ -77,6 +81,16 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add audio
           if git diff --cached --quiet; then echo "Keine neuen Sprecherdateien."; else git commit -m "Sprecherdateien aktualisiert ($ENGINE)"; git push; fi
+
+      - name: Zwischenspeicher für Videos laden
+        uses: actions/cache@v4
+        with:
+          path: downloads
+          key: videos-${{ github.run_id }}
+          restore-keys: videos-
+
+      - name: MP4-Downloads bauen
+        run: python3 tools/video.py
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

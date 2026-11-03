@@ -124,7 +124,7 @@ mark { background: color-mix(in srgb, var(--accent) 18%, transparent); color: in
 .stage-inner { width: 100%; height: 100%; display: grid; grid-template-rows: minmax(0, 1fr) auto; justify-items: center; align-items: center; padding: 4% 6% 3%; }
 .stage-visual { width: min(54%, 440px); display: grid; place-items: center; }
 .stage-visual svg, .stage-visual video { width: 100%; height: auto; display: block; }
-.stage-visual.has-video { width: 100%; height: 100%; min-height: 0; }
+.stage-visual.has-video { width: 86%; height: 100%; min-height: 0; }
 .stage-visual .scene-video { width: 100%; height: 100%; object-fit: contain; animation: fade .25s ease both; }
 .video-error { font-size: 13px; color: var(--bad); background: var(--bad-bg); padding: 6px 10px; border-radius: 8px; margin: 8px 0 0; text-align: center; }
 .card-thumb video { width: 70%; height: auto; }
@@ -250,3 +250,23 @@ details.transcript li strong { display: block; }
 
 .pager { display: flex; justify-content: space-between; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
 .pager a { text-decoration: none; font-weight: 600; }
+
+/* ---------- Hintergründe, Grafiken, weitere Animationen ---------- */
+.stage[data-ton="dunkel"] .stage-word { color: #fff; }
+.stage[data-ton="dunkel"] .stage-count { color: rgba(255, 255, 255, .8); }
+.stage[data-ton="bild"] .stage-word { background: rgba(255, 255, 255, .92); padding: 6px 18px 10px; border-radius: 12px; box-shadow: 0 4px 16px rgba(0, 0, 0, .12); }
+.stage[data-ton="bild"] .stage-count { background: rgba(255, 255, 255, .85); padding: 2px 8px; border-radius: 6px; }
+.stage-visual .grafik-wrap { width: 100%; display: grid; place-items: center; }
+.stage-visual .scene-grafik { width: 100%; height: auto; max-height: 100%; display: block; object-fit: contain; }
+.stage-visual:has(.scene-grafik) { width: min(60%, 520px); height: 100%; min-height: 0; }
+.stage-visual:has(.scene-grafik) .grafik-wrap { height: 100%; }
+.stage-visual:has(.scene-grafik) .scene-grafik { height: 100%; width: 100%; }
+.card-thumb .grafik-wrap { width: 62%; height: 80%; display: grid; place-items: center; }
+.card-thumb .scene-grafik { max-width: 100%; max-height: 100%; object-fit: contain; }
+.anim-slide-up { animation: slideUp .9s cubic-bezier(.2, .8, .2, 1) both; }
+.anim-zoom     { animation: zoomIn 1s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes slideUp { from { transform: translateY(40%); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes zoomIn  { from { transform: scale(.85); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .anim-slide-up, .anim-zoom { animation: fade .3s ease both; } }
+.small-note { font-size: 13px; color: var(--ink-2); margin: 8px 0 0; }
+.dl-btn { width: 100%; justify-content: center; }

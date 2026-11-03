@@ -1,1 +1,1 @@
-Eigene Animationen hier ablegen (H.264, .mov oder .mp4). Siehe LIESMICH.md.
+Grafiken (SVG/PNG), Hintergrundbilder (JPG/PNG) und ggf. Videos hier ablegen. Siehe LIESMICH.md.

@@ -1,12 +1,13 @@
-# Lernnuggets – Prototyp 0.2
+# Lernnuggets – Prototyp 0.3
 
 Webbasierter Lern-Prototyp (Handlungsplan Nr. 13–16) im Stil von Erklärvideos:
 eigene After-Effects-Animationen, Sprecher, Untertitel, Quiz. Läuft komplett im Browser über
 **GitHub Pages**. Auf dem Firmenlaptop muss nichts installiert und kein Befehl ausgeführt werden.
 
 - **Lernplattform:** `index.html` – Suche, Kategorien, Erklär-Player, Quiz
-- **Studio:** `studio.html` – Inhalte bearbeiten, eigene Animationen zuordnen, Vorschau, Veröffentlichen
+- **Studio:** `studio.html` – Inhalte bearbeiten, Grafiken und Hintergründe zuordnen, Vorschau, Veröffentlichen
 - **Sprecher:** werden automatisch von GitHub erzeugt (Test: Piper, kostenlos · später: Azure AI Speech)
+- **MP4-Downloads:** GitHub baut pro Lernnugget ein fertiges Video mit Sprecher und zuschaltbaren Untertiteln
 
 ---
 
@@ -21,40 +22,48 @@ eigene After-Effects-Animationen, Sprecher, Untertitel, Quiz. Läuft komplett im
    `.github/workflows/veroeffentlichen.yml` eintippen, Inhalt der gleichnamigen Datei hineinkopieren, **Commit changes**.
 4. **Settings → Pages → Build and deployment → Source: „GitHub Actions“** auswählen.
 5. **Actions**-Reiter öffnen → Workflow „Veröffentlichen“ → **Run workflow**.
-   Nach 2–3 Minuten ist die Seite online unter `https://<dein-github-name>.github.io/lernnuggets/`
+   Nach 3–5 Minuten ist die Seite online unter `https://<dein-github-name>.github.io/lernnuggets/`
    (Studio: `…/lernnuggets/studio.html`).
 
 > **Wichtig:** Die Seite ist öffentlich erreichbar. Laut Handlungsplan (Nr. 5) nur **neutrale Demo-Inhalte** verwenden –
 > keine internen Inhalte, kein Firmenlogo – bis Hosting und Markenauftritt intern freigegeben sind.
 
-## 2. Eigene Animationen einbinden
+## 2. Grafiken, Animationen und Hintergründe
 
-**Format:** In Adobe Media Encoder als **H.264** ausgeben, Container **.mov oder .mp4** – beides läuft in Edge und Chrome.
-ProRes- oder Animation-Codec-MOVs (typische AE-Master mit Transparenz) kann **kein** Browser außer Safari abspielen –
-das Studio erkennt solche Dateien und markiert sie rot.
+**Empfohlen: Grafik + Animation aus dem Studio.** Pro Szene eine Grafik hochladen und im Studio die Animation wählen:
+Slide von links, Slide von rechts, Slide von unten, Pop-up, Zoom, Fade-in. Dazu optional eine **Mindestdauer**
+(3, 5, 10 s oder eigene Angabe) – sonst richtet sich die Szene nach dem Sprecher.
 
-| Einstellung | Empfehlung |
+| Grafikformat | Hinweis |
 |---|---|
-| Hintergrund | Weiß (die Bühne ist weiß, Transparenz nicht nötig) |
-| Auflösung | 1280×720 oder 1920×1080 (jedes Seitenverhältnis wird eingepasst) |
-| Bildrate | 30 fps fürs Web (60-fps-Master im Archiv lassen) |
-| Bitrate | ca. 2–4 Mbit/s, **ohne Tonspur** |
-| Länge | 3, 5 oder 10 s – egal, der Player richtet sich nach der Datei |
-| Dateiname | `motiv_variante_laenge.mov`, z. B. `mail_slide-links_5s.mov` |
-| Größe | max. **25 MB** pro Datei (Grenze für Uploads über die GitHub-Weboberfläche) |
+| **SVG** (empfohlen) | z. B. direkt von unDraw; winzig und in jeder Größe scharf |
+| **PNG mit Transparenz** | ca. 1600 px breit, aus Illustrator oder After Effects |
 
-Tipp: Mit einem **überwachten Ordner** in Media Encoder laufen die Exporte über Nacht automatisch.
+**Hintergrund** – drei Ebenen, die jeweils die darüberliegende ersetzen:
+1. **Standard** für die ganze Plattform (Studio → „⚙ Einstellungen“)
+2. **pro Lernnugget** (Bereich „Allgemein“)
+3. **pro Szene** (in jeder Szene)
+
+Jeweils als **Farbe** (Farbwähler oder Hex-Wert, z. B. `#eef4fa`) oder als **Bild** (JPG/PNG, idealerweise 1920×1080,
+wird flächig eingepasst). Stichwörter werden automatisch lesbar dargestellt: weiß auf dunklen Farben, auf Bildern mit heller Plakette.
 
 **Ablauf im Studio:**
-1. `studio.html` öffnen → rechts **„Dateien wählen …“** oder Dateien in das Feld ziehen.
-   Die Videos werden nur im Browser geladen und sofort geprüft (Länge, Auflösung, abspielbar ja/nein).
-2. Pro Szene unter **„Animation“** die Datei auswählen. Szene anklicken = Video abspielen.
-3. **„Vorschau öffnen“** zeigt die komplette Lernplattform mit deinen Änderungen – nur in deinem Browser.
-4. **„Veröffentlichen …“** führt durch die Schritte: `inhalte.js` herunterladen, im Repository in den Ordner `data`
-   hochladen, neue Videos in den Ordner `media` hochladen. Die Links dorthin stehen im Dialog.
+1. Rechts unter „Medien“ Dateien wählen oder hineinziehen – sie werden nur im Browser geladen und geprüft.
+2. Pro Szene unter **„Bildinhalt“** die Grafik wählen, Animation und ggf. Mindestdauer einstellen. Vorschau anklicken = Animation abspielen.
+3. Hintergründe setzen (Standard / Lernnugget / Szene).
+4. **„Vorschau öffnen“** zeigt die komplette Plattform mit deinen Änderungen – nur in deinem Browser.
+5. **„Veröffentlichen …“** führt durch die Schritte: `inhalte.js` herunterladen und in den Ordner `data` hochladen,
+   neue Dateien in den Ordner `media` hochladen. Die Links dorthin stehen im Dialog.
 
-**Timing:** Eine Szene läuft so lange, bis **Sprecher und Animation** fertig sind. Ein 10-s-Video mit 6 s Sprechertext
-läuft also 10 s; ein 3-s-Video mit 7 s Text bleibt nach der Animation auf dem letzten Frame stehen.
+**Fertige Videos** (aus AE) gehen weiterhin als Sonderfall: im Bildinhalt unter „Fertige Videos“ wählen.
+Format H.264 als .mov/.mp4 (ProRes läuft in keinem Browser außer Safari), max. 25 MB. Der gewählte Hintergrund ist
+dann nur rund um das Video sichtbar.
+
+## MP4-Downloads
+Bei jeder Veröffentlichung baut GitHub für jedes **geänderte** Lernnugget ein Video (1920×1080, H.264/AAC):
+gleiche Grafiken, Animationen, Hintergründe und Sprecher wie auf der Website. Die **Untertitel** sind als eigene Spur
+eingebettet (im Player zuschaltbar) und zusätzlich als `.srt` herunterladbar. Auf der Detailseite erscheint dafür der
+Button **„Video herunterladen (MP4)“**. Die Videos liegen nur in der veröffentlichten Seite, nicht im Repository.
 
 ## 3. Sprecher (Text-to-Speech)
 
@@ -86,8 +95,11 @@ Ohne Audiodatei nutzt der Player eine lokal installierte Windows-Stimme als Vors
 | Pfad | Inhalt |
 |---|---|
 | `data/inhalte.js` | alle Inhalte (wird vom Studio erzeugt) |
-| `media/` | eigene Animationen |
+| `media/` | Grafiken, Hintergrundbilder, ggf. Videos |
+| `downloads/` | MP4- und SRT-Dateien (werden automatisch erzeugt, nicht im Repository) |
 | `audio/` | Sprecherdateien (automatisch) |
 | `assets/` | Gestaltung und Logik; CI-Farben oben in `style.css` |
 | `tools/tts.py` | Sprecher-Skript (wird vom Workflow aufgerufen) |
+| `tools/video.py` | baut die MP4-Downloads (wird vom Workflow aufgerufen) |
+| `assets/platzhalter/` | Platzhalter-Icons als SVG (für den Videobau) |
 | `.github/workflows/veroeffentlichen.yml` | Sprecher erzeugen + Seite veröffentlichen |
