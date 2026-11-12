@@ -74,6 +74,11 @@ def model_info(modell, cache):
     text = card.read_text(encoding="utf-8", errors="replace") if card.exists() else ""
     m = re.search(r"[Ll]icen[sc]e[^:\n]*:\s*(.+)", text)
     lizenz = m.group(1).strip().strip("*`[] ") if m else "unbekannt – Model Card prüfen"
+    if lizenz.lower().startswith("see"):
+        u = re.search(r"https?://\S+", text)
+        lizenz = f"siehe {u.group(0).rstrip(')')}" if u else "siehe Model Card"
+    if "by-nc" in lizenz.lower():
+        lizenz = "CC BY-NC-SA 4.0 (nicht kommerziell)"
     return {"lizenz": lizenz[:120], "qualitaet": modell.rsplit("-", 1)[-1]}
 
 
