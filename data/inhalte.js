@@ -2,11 +2,12 @@ window.LERN_DATA = {
   "meta": {
     "titel": "Lernnuggets",
     "untertitel": "Kurze Erklärformate mit animierten Icons",
-    "version": "Prototyp 0.3",
+    "version": "Prototyp 0.4",
     "akzentfarbe": "#0b6fb8",
     "hintergrund": {
       "farbe": "#ffffff"
-    }
+    },
+    "stimme": "thorsten"
   },
   "kategorien": [
     {

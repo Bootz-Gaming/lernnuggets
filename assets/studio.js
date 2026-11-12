@@ -13,6 +13,40 @@
   const VIDEO_RE = /\.(mov|mp4|m4v|webm)$/i;
   const BILD_RE = /\.(svg|png|jpe?g|webp)$/i;
   const DAUERN = [['', 'automatisch'], ['3', '3 Sekunden'], ['5', '5 Sekunden'], ['10', '10 Sekunden']];
+  const KATALOG = window.LERN_STIMMEN || { standard: 'thorsten', stimmen: [] };
+  const STIMMINFO = (window.LERN_STIMMEN_INFO || {}).stimmen || {};
+
+  // ---------- Stimmen ----------
+  // Auswahl mit Hörprobe; erben = Bezeichnung der geerbten Ebene oder null (Plattform-Standard)
+  function voiceSelect(sel, erben, scope) {
+    const opts = KATALOG.stimmen.map(v => `<option value="${esc(v.id)}" ${v.id === sel ? 'selected' : ''}>${esc(v.name)} – ${esc(v.beschreibung)}</option>`).join('');
+    const unknown = sel && !KATALOG.stimmen.some(v => v.id === sel) ? `<option value="${esc(sel)}" selected>${esc(sel)} (unbekannt)</option>` : '';
+    return `<div class="voice-row" data-voice="${scope}">
+      <select data-vf="sel" aria-label="Stimme">${erben ? `<option value="" ${!sel ? 'selected' : ''}>${esc(erben)}</option>` : ''}${unknown}${opts}</select>
+      <button type="button" class="ctrl" data-vf="play" title="Hörprobe abspielen">▶ Probe</button>
+      <span class="voice-info" data-vf="info">${voiceInfo(sel)}</span></div>`;
+  }
+  function voiceInfo(id) {
+    const i = id && STIMMINFO[id];
+    return i ? `Lizenz: ${esc(i.lizenz)}` : '';
+  }
+  let hoerprobe = null;
+  function bindVoice(root, get, set, fallback) {
+    const sel = root.querySelector('[data-vf="sel"]'), btn = root.querySelector('[data-vf="play"]'), info = root.querySelector('[data-vf="info"]');
+    sel.addEventListener('change', () => { set(sel.value || null); info.innerHTML = voiceInfo(sel.value); save(); });
+    btn.addEventListener('click', () => {
+      const id = sel.value || fallback();
+      if (hoerprobe) { hoerprobe.pause(); const war = hoerprobe._btn; hoerprobe = null; if (war) war.textContent = '▶ Probe'; if (war === btn) return; }
+      const a = new Audio(`audio/stimmen/${encodeURIComponent(id)}.mp3`);
+      a._btn = btn; hoerprobe = a;
+      btn.textContent = '… lädt';
+      a.addEventListener('playing', () => { btn.textContent = '■ Stopp'; });
+      a.addEventListener('ended', () => { btn.textContent = '▶ Probe'; if (hoerprobe === a) hoerprobe = null; });
+      a.addEventListener('error', () => { btn.textContent = '▶ Probe'; if (hoerprobe === a) hoerprobe = null; info.textContent = 'Hörprobe noch nicht erzeugt – entsteht beim nächsten Veröffentlichen.'; });
+      a.play().catch(() => {});
+    });
+  }
+  const stimmeVon = (n, sc) => (sc && sc.stimme) || (n && n.stimme) || data.meta.stimme || KATALOG.standard;
 
   const store = {
     get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
@@ -175,9 +209,10 @@
     const mb = cleanBg(out.meta.hintergrund); if (mb) out.meta.hintergrund = mb; else delete out.meta.hintergrund;
     out.nuggets.forEach(n => {
       n.schlagwoerter = (n.schlagwoerter || []).map(s => s.trim()).filter(Boolean);
+      if (!n.stimme) delete n.stimme;
       const nb = cleanBg(n.hintergrund); if (nb) n.hintergrund = nb; else delete n.hintergrund;
       n.szenen.forEach(sc => {
-        ['sprechtext', 'video', 'grafik', 'stichwort'].forEach(k => { if (sc[k] === '' || sc[k] == null) delete sc[k]; });
+        ['sprechtext', 'video', 'grafik', 'stichwort', 'stimme'].forEach(k => { if (sc[k] === '' || sc[k] == null) delete sc[k]; });
         if (!sc.video) delete sc.laenge;
         if (!(+sc.mindestdauer > 0)) delete sc.mindestdauer; else sc.mindestdauer = +sc.mindestdauer;
         const sb = cleanBg(sc.hintergrund); if (sb) sc.hintergrund = sb; else delete sc.hintergrund;
@@ -369,6 +404,7 @@
             <option value="entwurf" ${n.freigabestatus !== 'freigegeben' ? 'selected' : ''}>Entwurf – fachlich ungeprüft</option>
             <option value="freigegeben" ${n.freigabestatus === 'freigegeben' ? 'selected' : ''}>Fachlich freigegeben</option></select></label>
           ${field('ID', 'id', n.id, { hint: 'Teil der Adresse und der Dateinamen' })}
+          <div class="field full"><span>Stimme für alle Szenen dieses Lernnuggets</span>${voiceSelect(n.stimme, 'wie Standard der Plattform', 'n')}</div>
           <div class="field full"><span>Hintergrund für alle Szenen dieses Lernnuggets</span>${bgEditor(n.hintergrund, 'Standard der Plattform', 'n')}</div>
         </div>
       </section>
@@ -398,6 +434,7 @@
               <label class="field"><span>Stichwort auf der Bühne</span><input data-sf="stichwort" value="${esc(sc.stichwort)}"></label>
               <label class="field"><span>Sprechertext / Untertitel</span><textarea data-sf="text" rows="3">${esc(sc.text)}</textarea></label>
               <label class="field"><span>Aussprache <em class="hint">optional, z. B. „eins, eins, zwei“ statt „112“</em></span><input data-sf="sprechtext" value="${esc(sc.sprechtext)}"></label>
+              <div class="field"><span>Stimme dieser Szene</span>${voiceSelect(sc.stimme, 'wie Lernnugget', 's' + k)}</div>
               <div class="field"><span>Hintergrund dieser Szene</span>${bgEditor(sc.hintergrund, 'wie Lernnugget', 's' + k)}</div>
             </div>
           </div>`).join('')}
@@ -434,6 +471,7 @@
           ${field('Untertitel', 'm-untertitel', m.untertitel)}
           <label class="field"><span>Akzentfarbe <em class="hint">Buttons, Linien, Platzhalter-Icons</em></span>
             <div class="bg-row"><input type="color" data-mf="akzent-p" value="${SZ.normHex(m.akzentfarbe) || '#0b6fb8'}"><input class="hex" data-mf="akzent" value="${esc(SZ.normHex(m.akzentfarbe) || '#0b6fb8')}" maxlength="7"></div></label>
+          <div class="field full"><span>Standard-Stimme für alle Lernnuggets</span>${voiceSelect(m.stimme || KATALOG.standard, null, 'm')}</div>
           <div class="field full"><span>Standard-Hintergrund für alle Lernnuggets</span>${bgEditor(m.hintergrund, null, 'm')}</div>
         </div>
         <p class="hint-line">Reihenfolge: Hintergrund der Szene → des Lernnuggets → dieser Standard.</p>
@@ -446,6 +484,7 @@
     const setAkzent = v => { m.akzentfarbe = v; document.documentElement.style.setProperty('--accent', v); save(); };
     ap.addEventListener('input', () => { ah.value = ap.value; setAkzent(ap.value); });
     ah.addEventListener('input', () => { const v = SZ.normHex(ah.value); ah.classList.toggle('invalid', !v); if (v) { ap.value = v; setAkzent(v); } });
+    bindVoice(editor.querySelector('[data-voice="m"]'), () => m.stimme, v => { m.stimme = v || KATALOG.standard; }, () => KATALOG.standard);
     bindBg(editor.querySelector('[data-bg="m"]'), () => m.hintergrund, v => { m.hintergrund = v || { farbe: '#ffffff' }; save(); },
       full => { if (full) renderEditor(); else editor.querySelector('.settings-prev').innerHTML = stagePreview(null, { icon: 'report', animation: 'pop', stichwort: 'Beispiel-Stichwort' }); wireStages(); });
     wireStages();
@@ -491,6 +530,7 @@
       data.nuggets.splice(cur, 1); cur = Math.max(-1, Math.min(cur, data.nuggets.length - 1)); renderAll(); save();
     });
     // Hintergrund des Lernnuggets: wirkt auf alle Szenen-Vorschauen
+    bindVoice(editor.querySelector('[data-voice="n"]'), () => n.stimme, v => { if (v) n.stimme = v; else delete n.stimme; }, () => stimmeVon(null, null));
     bindBg(editor.querySelector('[data-bg="n"]'), () => n.hintergrund, v => { if (v) n.hintergrund = v; else delete n.hintergrund; save(); },
       full => { if (full) renderEditor(); else refreshStages(n); });
 
@@ -517,6 +557,7 @@
         if (['icon', 'animation', 'stichwort'].includes(f)) refresh();
         save();
       }));
+      bindVoice(el.querySelector(`[data-voice="s${k}"]`), () => sc.stimme, v => { if (v) sc.stimme = v; else delete sc.stimme; }, () => stimmeVon(n, null));
       bindBg(el.querySelector(`[data-bg="s${k}"]`), () => sc.hintergrund, v => { if (v) sc.hintergrund = v; else delete sc.hintergrund; save(); },
         full => { if (full) renderEditor(); else refresh(); });
       el.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => {

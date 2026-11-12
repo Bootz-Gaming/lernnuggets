@@ -1,4 +1,4 @@
-# Lernnuggets – Prototyp 0.3
+# Lernnuggets – Prototyp 0.4
 
 Webbasierter Lern-Prototyp (Handlungsplan Nr. 13–16) im Stil von Erklärvideos:
 eigene After-Effects-Animationen, Sprecher, Untertitel, Quiz. Läuft komplett im Browser über
@@ -70,15 +70,26 @@ Button **„Video herunterladen (MP4)“**. Die Videos liegen nur in der veröff
 Bei jeder Änderung an `data/inhalte.js` vertont der Workflow automatisch alle Szenen mit neuem oder geändertem Text
 und legt sie als `audio/<id>-<szene>.mp3` ab. Unveränderte Szenen werden nicht neu erzeugt.
 
-**Test (aktiv): Piper** – Stimme „Thorsten“ (Deutsch), läuft im GitHub-Runner, kostenlos, keine Anmeldung bei
-einem Sprachdienst. Die mitgelieferten Testdateien sind in einfacher Qualität vorab erzeugt; der erste Lauf auf
-GitHub ersetzt sie automatisch durch die höhere Qualitätsstufe.
+**Test (aktiv): Piper** – kostenlos, läuft im GitHub-Runner. Verfügbare deutsche Stimmen (Katalog in `assets/stimmen.js`):
+
+| Stimme | Charakter |
+|---|---|
+| Thorsten (Standard) | männlich, klar, beste Qualität |
+| Thorsten – ruhig / freundlich / überrascht | männlich, mit Emotion |
+| Kerstin, Ramona, Eva | weiblich |
+| Karlsson, Pavoque | männlich |
+
+Die Stimme wird wie der Hintergrund auf drei Ebenen gewählt: **Standard** (Studio → Einstellungen) → **Lernnugget** → **Szene**.
+Im Studio gibt es zu jeder Stimme eine **Hörprobe** und die Lizenz laut Model Card. Lizenzen unterscheiden sich je Stimme –
+vor produktivem Einsatz prüfen. Benötigte Stimmen lädt der Workflow automatisch; nur Szenen mit geänderter Stimme oder
+geändertem Text werden neu vertont.
 
 **Ziel: Azure AI Speech** (nach Freigabe durch IT/Datenschutz):
 1. Im Azure-Portal eine Speech-Ressource in der Region **Germany West Central** anlegen, Schlüssel kopieren.
 2. Im Repository: **Settings → Secrets and variables → Actions**
    - Reiter *Secrets*: `AZURE_SPEECH_KEY` = Schlüssel
-   - Reiter *Variables*: `TTS_ENGINE` = `azure` (optional `AZURE_SPEECH_REGION`, `AZURE_VOICE`, Standard `de-DE-KatjaNeural`)
+   - Reiter *Variables*: `TTS_ENGINE` = `azure` (optional `AZURE_SPEECH_REGION`)
+   - Jede Katalog-Stimme hat eine passende Azure-Stimme (Feld `azure` in `assets/stimmen.js`, z. B. männlich → ConradNeural, weiblich → KatjaNeural)
 3. **Actions → Veröffentlichen → Run workflow**, Engine „azure“, Haken bei „Alle Szenen neu vertonen“.
 
 Für die Aussprache kann im Studio pro Szene ein abweichender Sprechtext gesetzt werden (z. B. „eins, eins, zwei“).
@@ -100,6 +111,8 @@ Ohne Audiodatei nutzt der Player eine lokal installierte Windows-Stimme als Vors
 | `audio/` | Sprecherdateien (automatisch) |
 | `assets/` | Gestaltung und Logik; CI-Farben oben in `style.css` |
 | `tools/tts.py` | Sprecher-Skript (wird vom Workflow aufgerufen) |
+| `assets/stimmen.js` | Stimmenkatalog (Name, Beschreibung, Piper-Modell, Azure-Gegenstück) |
+| `audio/stimmen/` | Hörproben je Stimme (automatisch) |
 | `tools/video.py` | baut die MP4-Downloads (wird vom Workflow aufgerufen) |
 | `assets/platzhalter/` | Platzhalter-Icons als SVG (für den Videobau) |
 | `.github/workflows/veroeffentlichen.yml` | Sprecher erzeugen + Seite veröffentlichen |
