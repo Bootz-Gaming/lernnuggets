@@ -22,19 +22,19 @@ window.LERN_STIMMEN_INFO = {
    "qualitaet": "low"
   },
   "ramona": {
-   "lizenz": "See URL",
+   "lizenz": "siehe https://www.caito.de/2019/01/03/the-m-ailabs-speech-dataset/",
    "qualitaet": "low"
   },
   "eva": {
-   "lizenz": "See URL",
+   "lizenz": "siehe https://www.caito.de/2019/01/03/the-m-ailabs-speech-dataset/",
    "qualitaet": "x_low"
   },
   "karlsson": {
-   "lizenz": "See URL",
+   "lizenz": "siehe https://www.caito.de/2019/01/03/the-m-ailabs-speech-dataset/",
    "qualitaet": "low"
   },
   "pavoque": {
-   "lizenz": "http://creativecommons.org/licenses/by-nc-sa/4.0/",
+   "lizenz": "CC BY-NC-SA 4.0 (nicht kommerziell)",
    "qualitaet": "low"
   }
  }
