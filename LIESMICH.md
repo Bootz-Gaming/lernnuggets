@@ -76,8 +76,6 @@ und legt sie als `audio/<id>-<szene>.mp3` ab. Unveränderte Szenen werden nicht 
 |---|---|
 | Thorsten (Standard) | männlich, klar, beste Qualität |
 | Thorsten – ruhig / freundlich / überrascht | männlich, mit Emotion |
-| Kerstin, Ramona, Eva | weiblich |
-| Karlsson, Pavoque | männlich |
 
 Die Stimme wird wie der Hintergrund auf drei Ebenen gewählt: **Standard** (Studio → Einstellungen) → **Lernnugget** → **Szene**.
 Im Studio gibt es zu jeder Stimme eine **Hörprobe** und die Lizenz laut Model Card. Lizenzen unterscheiden sich je Stimme –
