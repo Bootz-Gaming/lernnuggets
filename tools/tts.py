@@ -6,7 +6,9 @@ Sprecherdateien für alle Szenen erzeugen. Läuft automatisch im GitHub-Workflow
 Ausgabe: audio/<nugget-id>-<szene>.mp3, dazu Hörproben audio/stimmen/<stimme>.mp3
 und audio/stimmen/index.js (Lizenz und Qualität je Stimme fürs Studio).
 
-Stimme je Szene: Szene → Lernnugget → Plattform-Standard (meta.stimme) → Katalog-Standard.
+Stimme je Szene: Szene → Lernnugget → Plattform-Standard der Sprache (meta.stimme / meta.stimme_en)
+→ Katalog-Standard. Sprache je Lernnugget: Feld "sprache" ("de" Standard oder "en"); Stimmen
+einer anderen Sprache werden übersprungen.
 Der Stimmenkatalog steht in assets/stimmen.js.
 
 Engines:
@@ -111,7 +113,8 @@ def synth_azure(text, mp3, stimme, args):
         sys.exit("AZURE_SPEECH_KEY fehlt (GitHub: Settings > Secrets and variables > Actions).")
     voice = stimme.get("azure") or args.azure_stimme
     rate = f"{round((1 / args.tempo - 1) * 100):+d}%"
-    ssml = (f'<speak version="1.0" xml:lang="de-DE"><voice name="{escape(voice)}">'
+    lang = voice[:5] if re.match(r"^[a-z]{2}-[A-Z]{2}", voice) else "de-DE"
+    ssml = (f'<speak version="1.0" xml:lang="{lang}"><voice name="{escape(voice)}">'
             f'<prosody rate="{rate}">{escape(text)}</prosody></voice></speak>')
     req = urllib.request.Request(
         f"https://{region}.tts.speech.microsoft.com/cognitiveservices/v1",
@@ -142,17 +145,20 @@ def main():
 
     katalog = load_js(ROOT / "assets" / "stimmen.js")
     stimmen = {s["id"]: s for s in katalog["stimmen"]}
-    default_id = katalog.get("standard", "thorsten")
     data = load_js(ROOT / "data" / "inhalte.js")
-    meta_id = (data.get("meta") or {}).get("stimme")
+    meta = data.get("meta") or {}
+    defaults = {"de": [meta.get("stimme"), katalog.get("standard", "thorsten")],
+                "en": [meta.get("stimme_en"), katalog.get("standard_en")]}
 
     def resolve(n, sc):
-        for sid in (sc.get("stimme"), n.get("stimme"), meta_id, default_id):
-            if sid and sid in stimmen:
-                return stimmen[sid]
-            if sid:
-                print(f"  Hinweis: Stimme „{sid}“ unbekannt – nutze nächste Ebene")
-        return next(iter(stimmen.values()))
+        lang = n.get("sprache") or "de"
+        for sid in (sc.get("stimme"), n.get("stimme"), *defaults.get(lang, [])):
+            if not sid: continue
+            v = stimmen.get(sid)
+            if v and (v.get("sprache") or "de") == lang:
+                return v
+            print(f"  Hinweis: Stimme „{sid}“ {'unbekannt' if not v else 'passt nicht zur Sprache ' + lang} – nutze nächste Ebene")
+        return next(v for v in stimmen.values() if (v.get("sprache") or "de") == lang)
 
     AUDIO.mkdir(exist_ok=True)
     index = json.loads(INDEX.read_text(encoding="utf-8")) if INDEX.exists() else {}
@@ -181,11 +187,12 @@ def main():
         for s in katalog["stimmen"]:
             key = f"stimmen/{s['id']}.mp3"
             wanted.add(key)
-            h = hashlib.sha1(f"{voice_key(s, args)}|{katalog['probesatz']}".encode("utf-8")).hexdigest()[:12]
+            satz = katalog.get("probesatz_en") if s.get("sprache") == "en" else katalog["probesatz"]
+            h = hashlib.sha1(f"{voice_key(s, args)}|{satz}".encode("utf-8")).hexdigest()[:12]
             out = PROBEN / f"{s['id']}.mp3"
             if args.alles or not out.exists() or index.get(key) != h:
                 print(f"  Hörprobe {s['id']}")
-                synth(katalog["probesatz"], out, s, args)
+                synth(satz, out, s, args)
                 index[key] = h
                 made += 1
             if args.engine == "piper":

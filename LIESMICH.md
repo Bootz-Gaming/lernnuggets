@@ -1,4 +1,4 @@
-# Lernnuggets – Prototyp 0.4
+# Lernnuggets – Prototyp 0.5
 
 Webbasierter Lern-Prototyp (Handlungsplan Nr. 13–16) im Stil von Erklärvideos:
 eigene After-Effects-Animationen, Sprecher, Untertitel, Quiz. Läuft komplett im Browser über
@@ -76,6 +76,13 @@ und legt sie als `audio/<id>-<szene>.mp3` ab. Unveränderte Szenen werden nicht 
 |---|---|
 | Thorsten (Standard) | männlich, klar, beste Qualität |
 | Thorsten – ruhig / freundlich / überrascht | männlich, mit Emotion |
+| Ryan (Standard Englisch) | männlich, US-Englisch, beste Qualität |
+| Cori | weiblich, britisches Englisch, beste Qualität |
+| Alan | männlich, britisches Englisch |
+
+**Sprache pro Lernnugget:** Im Studio unter „Allgemein“ Deutsch oder Englisch wählen. Die Stimmenauswahl zeigt dann nur
+passende Stimmen; unter „⚙ Einstellungen“ gibt es je Sprache eine Standard-Stimme. Englische Lernnuggets tragen auf der
+Kachel ein „EN“, die MP4-Untertitelspur heißt dann „English“. Die Bedienoberfläche bleibt deutsch.
 
 Die Stimme wird wie der Hintergrund auf drei Ebenen gewählt: **Standard** (Studio → Einstellungen) → **Lernnugget** → **Szene**.
 Im Studio gibt es zu jeder Stimme eine **Hörprobe** und die Lizenz laut Model Card. Lizenzen unterscheiden sich je Stimme –

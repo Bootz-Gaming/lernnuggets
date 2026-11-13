@@ -270,3 +270,5 @@ details.transcript li strong { display: block; }
 @media (prefers-reduced-motion: reduce) { .anim-slide-up, .anim-zoom { animation: fade .3s ease both; } }
 .small-note { font-size: 13px; color: var(--ink-2); margin: 8px 0 0; }
 .dl-btn { width: 100%; justify-content: center; }
+
+.tag.lang { background: var(--ink); color: #fff; }

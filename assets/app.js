@@ -135,9 +135,9 @@
       <a class="card" href="#/nugget/${n.id}">
         <div class="card-thumb" data-icon="${esc(n.szenen[0].icon)}" style="${SZ.bgStyle(SZ.hintergrund(DATA.meta, n, n.szenen[0]))}">${thumb(n.szenen[0])}<span class="dur">${n.szenen.length} Szenen · ${fmtDur(nuggetSeconds(n))}</span></div>
         <div class="card-body">
-          <div class="meta"><span class="tag">${esc(katName[n.kategorie])}</span><span class="status ${n.freigabestatus}">${n.freigabestatus === 'freigegeben' ? 'Freigegeben' : 'Entwurf'}</span></div>
-          <h2>${highlight(n.titel, q)}</h2>
-          <p>${highlight(n.kurztext, q)}</p>
+          <div class="meta"><span class="tag">${esc(katName[n.kategorie])}</span>${n.sprache === 'en' ? '<span class="tag lang">EN</span>' : ''}<span class="status ${n.freigabestatus}">${n.freigabestatus === 'freigegeben' ? 'Freigegeben' : 'Entwurf'}</span></div>
+          <h2 lang="${n.sprache || 'de'}">${highlight(n.titel, q)}</h2>
+          <p lang="${n.sprache || 'de'}">${highlight(n.kurztext, q)}</p>
         </div>
       </a>`).join('');
     wireThumbs(grid);
@@ -152,7 +152,7 @@
       <nav class="crumbs" aria-label="Brotkrumen"><a href="#/">← Alle Lernnuggets</a> / ${esc(katName[n.kategorie])}</nav>
       <div class="detail-head">
         <h1>${esc(n.titel)}</h1>
-        <div class="meta"><span class="tag">${esc(katName[n.kategorie])}</span><span class="tag">${n.szenen.length} Szenen · ${fmtDur(nuggetSeconds(n))}</span><span class="status ${n.freigabestatus}">${esc(STATUS[n.freigabestatus] || n.freigabestatus)}</span></div>
+        <div class="meta"><span class="tag">${esc(katName[n.kategorie])}</span>${n.sprache === 'en' ? '<span class="tag lang">Englisch</span>' : ''}<span class="tag">${n.szenen.length} Szenen · ${fmtDur(nuggetSeconds(n))}</span><span class="status ${n.freigabestatus}">${esc(STATUS[n.freigabestatus] || n.freigabestatus)}</span></div>
       </div>
       <div class="detail">
         <div class="player" id="player"></div>
@@ -185,6 +185,9 @@
 
     player = new Player(main.querySelector('#player'), n);
     if (n.quiz && n.quiz.length) renderQuiz(main.querySelector('#quiz'), n);
+    // Sprache der Inhalte für Screenreader kennzeichnen (Bedienelemente bleiben deutsch)
+    const L = n.sprache || 'de';
+    main.querySelectorAll('h1, #cap, #word, .side .panel:first-child p, details.transcript ol, #qs').forEach(e => { e.lang = L; });
   }
 
   function downloadPanel(n) {
@@ -205,9 +208,13 @@
     voices: [],
     load() {
       if (!this.ok) return;
-      this.voices = speechSynthesis.getVoices().filter(v => v.localService && /^de(-|_|$)/i.test(v.lang));
+      this.voices = speechSynthesis.getVoices().filter(v => v.localService);
     },
-    voice() { return this.voices.find(v => v.voiceURI === ui.voiceURI) || this.voices[0] || null; }
+    voice(lang) {
+      const re = new RegExp('^' + (lang || 'de') + '(-|_|$)', 'i');
+      const passend = this.voices.filter(v => re.test(v.lang));
+      return passend.find(v => v.voiceURI === ui.voiceURI) || passend[0] || null;
+    }
   };
   tts.load();
   if (tts.ok) speechSynthesis.addEventListener('voiceschanged', () => { tts.load(); if (player) player.updateVoiceInfo(); });
@@ -272,9 +279,9 @@
     }
 
     updateVoiceInfo() {
-      const v = tts.voice();
+      const v = tts.voice(this.n.sprache);
       const t = !ui.ton ? 'Ton aus – Wiedergabe mit Untertiteln im Lesetempo.'
-        : `Sprecher: Audiodatei aus dem Ordner „audio“, falls vorhanden. Sonst ${v ? `lokale Systemstimme „${v.name}“ (offline)` : 'keine lokale deutsche Systemstimme gefunden – Wiedergabe ohne Ton'}.`;
+        : `Sprecher: Audiodatei aus dem Ordner „audio“, falls vorhanden. Sonst ${v ? `lokale Systemstimme „${v.name}“ (offline)` : `keine lokale ${this.n.sprache === 'en' ? 'englische' : 'deutsche'} Systemstimme gefunden – Wiedergabe ohne Ton`}.`;
       this.$('#vinfo').textContent = t + (this.source ? ` Aktuell: ${this.source}.` : '');
     }
 
@@ -377,7 +384,7 @@
         this.raf = requestAnimationFrame(tick);
       };
       const speak = () => {
-        const v = tts.voice();
+        const v = tts.voice(this.n.sprache);
         if (!ui.ton || !v) return timed(sc.dauer || sceneSeconds(sc), ui.ton ? 'Untertitel ohne Ton' : 'Ton aus');
         this.source = 'lokale Systemstimme'; this.updateVoiceInfo();
         const u = new SpeechSynthesisUtterance(sc.sprechtext || sc.text);

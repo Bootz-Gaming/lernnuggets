@@ -18,9 +18,12 @@
 
   // ---------- Stimmen ----------
   // Auswahl mit Hörprobe; erben = Bezeichnung der geerbten Ebene oder null (Plattform-Standard)
-  function voiceSelect(sel, erben, scope) {
-    const opts = KATALOG.stimmen.map(v => `<option value="${esc(v.id)}" ${v.id === sel ? 'selected' : ''}>${esc(v.name)} – ${esc(v.beschreibung)}</option>`).join('');
-    const unknown = sel && !KATALOG.stimmen.some(v => v.id === sel) ? `<option value="${esc(sel)}" selected>${esc(sel)} (unbekannt)</option>` : '';
+  const spracheVon = v => (v && v.sprache) || 'de';
+  const KAT_STANDARD = { de: KATALOG.standard || 'thorsten', en: KATALOG.standard_en || 'ryan' };
+  function voiceSelect(sel, erben, scope, lang) {
+    lang = lang || 'de';
+    const opts = KATALOG.stimmen.filter(v => spracheVon(v) === lang).map(v => `<option value="${esc(v.id)}" ${v.id === sel ? 'selected' : ''}>${esc(v.name)} – ${esc(v.beschreibung)}</option>`).join('');
+    const unknown = sel && !KATALOG.stimmen.some(v => v.id === sel && spracheVon(v) === lang) ? `<option value="${esc(sel)}" selected>${esc(sel)} (unbekannt)</option>` : '';
     return `<div class="voice-row" data-voice="${scope}">
       <select data-vf="sel" aria-label="Stimme">${erben ? `<option value="" ${!sel ? 'selected' : ''}>${esc(erben)}</option>` : ''}${unknown}${opts}</select>
       <button type="button" class="ctrl" data-vf="play" title="Hörprobe abspielen">▶ Probe</button>
@@ -46,7 +49,9 @@
       a.play().catch(() => {});
     });
   }
-  const stimmeVon = (n, sc) => (sc && sc.stimme) || (n && n.stimme) || data.meta.stimme || KATALOG.standard;
+  const standardStimme = lang => lang === 'en' ? (data.meta.stimme_en || KAT_STANDARD.en) : (data.meta.stimme || KAT_STANDARD.de);
+  const stimmeVon = (n, sc) => (sc && sc.stimme) || (n && n.stimme) || standardStimme(n && n.sprache);
+  const passtZu = (id, lang) => { const v = KATALOG.stimmen.find(x => x.id === id); return !v || spracheVon(v) === (lang || 'de'); };
 
   const store = {
     get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
@@ -210,6 +215,7 @@
     out.nuggets.forEach(n => {
       n.schlagwoerter = (n.schlagwoerter || []).map(s => s.trim()).filter(Boolean);
       if (!n.stimme) delete n.stimme;
+      if (n.sprache !== 'en') delete n.sprache;
       const nb = cleanBg(n.hintergrund); if (nb) n.hintergrund = nb; else delete n.hintergrund;
       n.szenen.forEach(sc => {
         ['sprechtext', 'video', 'grafik', 'stichwort', 'stimme'].forEach(k => { if (sc[k] === '' || sc[k] == null) delete sc[k]; });
@@ -250,7 +256,7 @@
     const kat = Object.fromEntries(data.kategorien.map(k => [k.id, k.name]));
     settingsBtn.setAttribute('aria-current', cur === -1);
     listEl.innerHTML = data.nuggets.map((n, i) => `<li><button data-i="${i}" aria-current="${i === cur}">
-      <span>${esc(n.titel || '(ohne Titel)')}</span><small>${esc(kat[n.kategorie] || '')} · ${n.szenen.length} Szenen${n.freigabestatus === 'freigegeben' ? ' · freigegeben' : ''}</small></button></li>`).join('');
+      <span>${esc(n.titel || '(ohne Titel)')}</span><small>${n.sprache === 'en' ? 'EN · ' : ''}${esc(kat[n.kategorie] || '')} · ${n.szenen.length} Szenen${n.freigabestatus === 'freigegeben' ? ' · freigegeben' : ''}</small></button></li>`).join('');
     listEl.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { cur = +b.dataset.i; renderAll(); editor.focus(); }));
   }
   settingsBtn.addEventListener('click', () => { cur = -1; renderAll(); editor.focus(); });
@@ -394,6 +400,9 @@
         <h2>Allgemein <button class="linkbtn" id="del-nugget">Lernnugget löschen</button></h2>
         <div class="fgrid">
           ${field('Titel', 'titel', n.titel)}
+          <label class="field"><span>Sprache</span><select data-f="sprache">
+            <option value="de" ${n.sprache !== 'en' ? 'selected' : ''}>Deutsch</option>
+            <option value="en" ${n.sprache === 'en' ? 'selected' : ''}>Englisch</option></select></label>
           <label class="field"><span>Kategorie</span><div class="inline"><select data-f="kategorie">${katOpts}</select><button class="ctrl" id="add-kat" type="button" title="Neue Kategorie">＋</button></div></label>
           ${field('Kurztext', 'kurztext', n.kurztext, { full: true, hint: 'erscheint auf der Kachel' })}
           ${field('Lernziel', 'lernziel', n.lernziel, { full: true, area: true, rows: 2 })}
@@ -404,7 +413,7 @@
             <option value="entwurf" ${n.freigabestatus !== 'freigegeben' ? 'selected' : ''}>Entwurf – fachlich ungeprüft</option>
             <option value="freigegeben" ${n.freigabestatus === 'freigegeben' ? 'selected' : ''}>Fachlich freigegeben</option></select></label>
           ${field('ID', 'id', n.id, { hint: 'Teil der Adresse und der Dateinamen' })}
-          <div class="field full"><span>Stimme für alle Szenen dieses Lernnuggets</span>${voiceSelect(n.stimme, 'wie Standard der Plattform', 'n')}</div>
+          <div class="field full"><span>Stimme für alle Szenen dieses Lernnuggets</span>${voiceSelect(n.stimme, `wie Standard (${n.sprache === 'en' ? 'Englisch' : 'Deutsch'})`, 'n', n.sprache)}</div>
           <div class="field full"><span>Hintergrund für alle Szenen dieses Lernnuggets</span>${bgEditor(n.hintergrund, 'Standard der Plattform', 'n')}</div>
         </div>
       </section>
@@ -434,7 +443,7 @@
               <label class="field"><span>Stichwort auf der Bühne</span><input data-sf="stichwort" value="${esc(sc.stichwort)}"></label>
               <label class="field"><span>Sprechertext / Untertitel</span><textarea data-sf="text" rows="3">${esc(sc.text)}</textarea></label>
               <label class="field"><span>Aussprache <em class="hint">optional, z. B. „eins, eins, zwei“ statt „112“</em></span><input data-sf="sprechtext" value="${esc(sc.sprechtext)}"></label>
-              <div class="field"><span>Stimme dieser Szene</span>${voiceSelect(sc.stimme, 'wie Lernnugget', 's' + k)}</div>
+              <div class="field"><span>Stimme dieser Szene</span>${voiceSelect(sc.stimme, 'wie Lernnugget', 's' + k, n.sprache)}</div>
               <div class="field"><span>Hintergrund dieser Szene</span>${bgEditor(sc.hintergrund, 'wie Lernnugget', 's' + k)}</div>
             </div>
           </div>`).join('')}
@@ -471,7 +480,8 @@
           ${field('Untertitel', 'm-untertitel', m.untertitel)}
           <label class="field"><span>Akzentfarbe <em class="hint">Buttons, Linien, Platzhalter-Icons</em></span>
             <div class="bg-row"><input type="color" data-mf="akzent-p" value="${SZ.normHex(m.akzentfarbe) || '#0b6fb8'}"><input class="hex" data-mf="akzent" value="${esc(SZ.normHex(m.akzentfarbe) || '#0b6fb8')}" maxlength="7"></div></label>
-          <div class="field full"><span>Standard-Stimme für alle Lernnuggets</span>${voiceSelect(m.stimme || KATALOG.standard, null, 'm')}</div>
+          <div class="field full"><span>Standard-Stimme für deutsche Lernnuggets</span>${voiceSelect(m.stimme || KAT_STANDARD.de, null, 'm', 'de')}</div>
+          <div class="field full"><span>Standard-Stimme für englische Lernnuggets</span>${voiceSelect(m.stimme_en || KAT_STANDARD.en, null, 'me', 'en')}</div>
           <div class="field full"><span>Standard-Hintergrund für alle Lernnuggets</span>${bgEditor(m.hintergrund, null, 'm')}</div>
         </div>
         <p class="hint-line">Reihenfolge: Hintergrund der Szene → des Lernnuggets → dieser Standard.</p>
@@ -484,7 +494,8 @@
     const setAkzent = v => { m.akzentfarbe = v; document.documentElement.style.setProperty('--accent', v); save(); };
     ap.addEventListener('input', () => { ah.value = ap.value; setAkzent(ap.value); });
     ah.addEventListener('input', () => { const v = SZ.normHex(ah.value); ah.classList.toggle('invalid', !v); if (v) { ap.value = v; setAkzent(v); } });
-    bindVoice(editor.querySelector('[data-voice="m"]'), () => m.stimme, v => { m.stimme = v || KATALOG.standard; }, () => KATALOG.standard);
+    bindVoice(editor.querySelector('[data-voice="m"]'), () => m.stimme, v => { m.stimme = v || KAT_STANDARD.de; }, () => KAT_STANDARD.de);
+    bindVoice(editor.querySelector('[data-voice="me"]'), () => m.stimme_en, v => { m.stimme_en = v || KAT_STANDARD.en; }, () => KAT_STANDARD.en);
     bindBg(editor.querySelector('[data-bg="m"]'), () => m.hintergrund, v => { m.hintergrund = v || { farbe: '#ffffff' }; save(); },
       full => { if (full) renderEditor(); else editor.querySelector('.settings-prev').innerHTML = stagePreview(null, { icon: 'report', animation: 'pop', stichwort: 'Beispiel-Stichwort' }); wireStages(); });
     wireStages();
@@ -509,6 +520,12 @@
       if (f === 'schlagwoerter') n.schlagwoerter = el.value.split(',');
       else if (f === 'id') n.id = slug(el.value);
       else n[f] = el.value;
+      if (f === 'sprache') {
+        // Stimmen der anderen Sprache entfernen, damit nichts Unpassendes vertont wird
+        if (n.stimme && !passtZu(n.stimme, n.sprache)) delete n.stimme;
+        n.szenen.forEach(sc => { if (sc.stimme && !passtZu(sc.stimme, n.sprache)) delete sc.stimme; });
+        save(); return renderAll();
+      }
       if (['titel', 'kategorie', 'freigabestatus'].includes(f)) renderNav();
       save();
     }));
@@ -530,7 +547,7 @@
       data.nuggets.splice(cur, 1); cur = Math.max(-1, Math.min(cur, data.nuggets.length - 1)); renderAll(); save();
     });
     // Hintergrund des Lernnuggets: wirkt auf alle Szenen-Vorschauen
-    bindVoice(editor.querySelector('[data-voice="n"]'), () => n.stimme, v => { if (v) n.stimme = v; else delete n.stimme; }, () => stimmeVon(null, null));
+    bindVoice(editor.querySelector('[data-voice="n"]'), () => n.stimme, v => { if (v) n.stimme = v; else delete n.stimme; }, () => standardStimme(n.sprache));
     bindBg(editor.querySelector('[data-bg="n"]'), () => n.hintergrund, v => { if (v) n.hintergrund = v; else delete n.hintergrund; save(); },
       full => { if (full) renderEditor(); else refreshStages(n); });
 

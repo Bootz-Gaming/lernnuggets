@@ -29,7 +29,7 @@ from PIL import Image, ImageDraw, ImageFont
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "downloads"
 W, H, FPS = 1920, 1080, 30
-VERSION = "video-4"           # erhöhen, wenn sich das Rendering ändert → alles neu
+VERSION = "video-5"           # erhöhen, wenn sich das Rendering ändert → alles neu
 INK, WHITE = (31, 36, 48), (255, 255, 255)
 BOX = (int(W * 0.58), int(H * 0.70))   # Fläche für die Grafik
 BOX_Y = int(H * 0.07)
@@ -357,10 +357,11 @@ def build_nugget(meta, n, tmp):
     srt = OUT / f"{n['id']}.srt"
     srt.write_text("".join(f"{i}\n{ts(a)} --> {ts(b)}\n{c}\n\n" for i, (a, b, c) in enumerate(cues, 1)), encoding="utf-8")
     mp4 = OUT / f"{n['id']}.mp4"
+    lang3, lang_name = ("eng", "English") if n.get("sprache") == "en" else ("ger", "Deutsch")
     run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(joined), "-i", str(srt), "-map", "0:v", "-map", "0:a", "-map", "1",
          "-c:v", "copy", "-c:a", "copy", "-c:s", "mov_text",
          "-metadata", f"title={n.get('titel', n['id'])}",
-         "-metadata:s:a:0", "language=ger", "-metadata:s:s:0", "language=ger", "-metadata:s:s:0", "title=Deutsch",
+         "-metadata:s:a:0", f"language={lang3}", "-metadata:s:s:0", f"language={lang3}", "-metadata:s:s:0", f"title={lang_name}",
          "-disposition:s:0", "-default", "-movflags", "+faststart", str(mp4)])
     return mp4, srt, t
 
