@@ -76,8 +76,8 @@ und legt sie als `audio/<id>-<szene>.mp3` ab. Unveränderte Szenen werden nicht 
 |---|---|
 | Thorsten (Standard) | männlich, klar, beste Qualität |
 | Thorsten – ruhig / freundlich / überrascht | männlich, mit Emotion |
-| Ryan (Standard Englisch) | männlich, US-Englisch, beste Qualität |
-| Cori | weiblich, britisches Englisch, beste Qualität |
+| Cori (Standard Englisch) | weiblich, britisches Englisch, beste Qualität, gemeinfrei |
+| Ryan | männlich, US-Englisch, beste Qualität – **nur nicht kommerziell** (CC BY-NC-SA) |
 | Alan | männlich, britisches Englisch |
 
 **Sprache pro Lernnugget:** Im Studio unter „Allgemein“ Deutsch oder Englisch wählen. Die Stimmenauswahl zeigt dann nur

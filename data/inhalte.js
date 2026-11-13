@@ -8,7 +8,7 @@ window.LERN_DATA = {
       "farbe": "#ffffff"
     },
     "stimme": "thorsten",
-    "stimme_en": "ryan"
+    "stimme_en": "cori"
   },
   "kategorien": [
     {

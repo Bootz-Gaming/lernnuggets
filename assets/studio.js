@@ -19,7 +19,7 @@
   // ---------- Stimmen ----------
   // Auswahl mit Hörprobe; erben = Bezeichnung der geerbten Ebene oder null (Plattform-Standard)
   const spracheVon = v => (v && v.sprache) || 'de';
-  const KAT_STANDARD = { de: KATALOG.standard || 'thorsten', en: KATALOG.standard_en || 'ryan' };
+  const KAT_STANDARD = { de: KATALOG.standard || 'thorsten', en: KATALOG.standard_en || 'cori' };
   function voiceSelect(sel, erben, scope, lang) {
     lang = lang || 'de';
     const opts = KATALOG.stimmen.filter(v => spracheVon(v) === lang).map(v => `<option value="${esc(v.id)}" ${v.id === sel ? 'selected' : ''}>${esc(v.name)} – ${esc(v.beschreibung)}</option>`).join('');
