@@ -13,6 +13,14 @@
   const VIDEO_RE = /\.(mov|mp4|m4v|webm)$/i;
   const BILD_RE = /\.(svg|png|jpe?g|webp)$/i;
   const DAUERN = [['', 'automatisch'], ['3', '3 Sekunden'], ['5', '5 Sekunden'], ['10', '10 Sekunden']];
+  // Schlichte Linien-Icons statt Sonderzeichen
+  const ICO = {
+    up: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5l-7 7 1.4 1.4L11 8.8V19h2V8.8l4.6 4.6L19 12z"/></svg>',
+    down: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19l7-7-1.4-1.4-4.6 4.6V5h-2v10.2l-4.6-4.6L5 12z"/></svg>',
+    dup: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h11a2 2 0 0 1 2 2v11h-2V5H8zM4 7h11a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zm0 2v11h11V9z"/></svg>',
+    del: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4zm-3 6h12l-1 12H7zm3 2v8h2v-8zm4 0v8h2v-8z"/></svg>',
+    x: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.4 5L5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6z"/></svg>'
+  };
   const KATALOG = window.LERN_STIMMEN || { standard: 'thorsten', stimmen: [] };
   const STIMMINFO = (window.LERN_STIMMEN_INFO || {}).stimmen || {};
 
@@ -26,7 +34,7 @@
     const unknown = sel && !KATALOG.stimmen.some(v => v.id === sel && spracheVon(v) === lang) ? `<option value="${esc(sel)}" selected>${esc(sel)} (unbekannt)</option>` : '';
     return `<div class="voice-row" data-voice="${scope}">
       <select data-vf="sel" aria-label="Stimme">${erben ? `<option value="" ${!sel ? 'selected' : ''}>${esc(erben)}</option>` : ''}${unknown}${opts}</select>
-      <button type="button" class="ctrl" data-vf="play" title="Hörprobe abspielen">▶ Probe</button>
+      <button type="button" class="ctrl" data-vf="play" title="Hörprobe abspielen">Probe anhören</button>
       <span class="voice-info" data-vf="info">${voiceInfo(sel)}</span></div>`;
   }
   function voiceInfo(id) {
@@ -39,13 +47,13 @@
     sel.addEventListener('change', () => { set(sel.value || null); info.innerHTML = voiceInfo(sel.value); save(); });
     btn.addEventListener('click', () => {
       const id = sel.value || fallback();
-      if (hoerprobe) { hoerprobe.pause(); const war = hoerprobe._btn; hoerprobe = null; if (war) war.textContent = '▶ Probe'; if (war === btn) return; }
+      if (hoerprobe) { hoerprobe.pause(); const war = hoerprobe._btn; hoerprobe = null; if (war) war.textContent = 'Probe anhören'; if (war === btn) return; }
       const a = new Audio(`audio/stimmen/${encodeURIComponent(id)}.mp3`);
       a._btn = btn; hoerprobe = a;
       btn.textContent = '… lädt';
-      a.addEventListener('playing', () => { btn.textContent = '■ Stopp'; });
-      a.addEventListener('ended', () => { btn.textContent = '▶ Probe'; if (hoerprobe === a) hoerprobe = null; });
-      a.addEventListener('error', () => { btn.textContent = '▶ Probe'; if (hoerprobe === a) hoerprobe = null; info.textContent = 'Hörprobe noch nicht erzeugt – entsteht beim nächsten Veröffentlichen.'; });
+      a.addEventListener('playing', () => { btn.textContent = 'Stoppen'; });
+      a.addEventListener('ended', () => { btn.textContent = 'Probe anhören'; if (hoerprobe === a) hoerprobe = null; });
+      a.addEventListener('error', () => { btn.textContent = 'Probe anhören'; if (hoerprobe === a) hoerprobe = null; info.textContent = 'Hörprobe noch nicht erzeugt – entsteht beim nächsten Veröffentlichen.'; });
       a.play().catch(() => {});
     });
   }
@@ -121,14 +129,14 @@
     let st;
     if (e.ok === null) st = '<span class="st">wird geprüft …</span>';
     else if (!e.ok) st = e.kind === 'video'
-      ? '<span class="st bad">✕ im Browser nicht abspielbar – vermutlich ProRes. Als H.264 ausgeben oder Grafik verwenden.</span>'
-      : '<span class="st bad">✕ Bild kann nicht geladen werden</span>';
-    else st = `<span class="st good">✓ ${e.kind === 'video' ? fmtS(e.duration) + ' · ' : ''}${e.w}×${e.h}</span>`;
+      ? '<span class="st bad">Im Browser nicht abspielbar, vermutlich ProRes. Als H.264 ausgeben oder eine Grafik verwenden.</span>'
+      : '<span class="st bad">Bild kann nicht geladen werden.</span>';
+    else st = `<span class="st good">Bereit: ${e.kind === 'video' ? fmtS(e.duration) + ', ' : ''}${e.w} × ${e.h} px</span>`;
     const big = e.size > 25 * 1024 * 1024 ? '<span class="st bad">Größer als 25 MB – Web-Upload bei GitHub nicht möglich</span>' : '';
     const prev = e.ok === false ? '<span class="vthumb-x">!</span>'
       : e.kind === 'video' ? `<video src="${esc(e.url)}" muted preload="metadata" data-end></video>`
         : `<img src="${esc(e.url)}" alt="">`;
-    const where = e.source === 'lokal' ? (e.inRepo ? 'lokal · auch im Repository' : 'lokal · noch nicht hochgeladen') : 'im Repository (media/)';
+    const where = e.source === 'lokal' ? (e.inRepo ? 'Lokal geladen, auch im Repository' : 'Lokal geladen, noch nicht hochgeladen') : 'Im Repository (media/)';
     return `<li class="lib-item">${prev}<div><div class="nm">${esc(e.name)}</div>${st}<div class="st">${where}</div>${big}</div></li>`;
   }
 
@@ -256,7 +264,7 @@
     const kat = Object.fromEntries(data.kategorien.map(k => [k.id, k.name]));
     settingsBtn.setAttribute('aria-current', cur === -1);
     listEl.innerHTML = data.nuggets.map((n, i) => `<li><button data-i="${i}" aria-current="${i === cur}">
-      <span>${esc(n.titel || '(ohne Titel)')}</span><small>${n.sprache === 'en' ? 'EN · ' : ''}${esc(kat[n.kategorie] || '')} · ${n.szenen.length} Szenen${n.freigabestatus === 'freigegeben' ? ' · freigegeben' : ''}</small></button></li>`).join('');
+      <span>${esc(n.titel || '(ohne Titel)')}</span><small>${[n.sprache === 'en' ? 'Englisch' : '', esc(kat[n.kategorie] || ''), n.szenen.length + ' Szenen', n.freigabestatus === 'freigegeben' ? 'freigegeben' : ''].filter(Boolean).join(', ')}</small></button></li>`).join('');
     listEl.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { cur = +b.dataset.i; renderAll(); editor.focus(); }));
   }
   settingsBtn.addEventListener('click', () => { cur = -1; renderAll(); editor.focus(); });
@@ -303,7 +311,7 @@
     if (missing) html += opt(val, fileOf(val.slice(2)) + ' (nicht gefunden)');
     const g = images(), v = videos();
     if (g.length) html += `<optgroup label="Grafiken (Animation wählbar)">${g.map(e => opt('g:media/' + e.name, e.name, e.ok === false)).join('')}</optgroup>`;
-    if (v.length) html += `<optgroup label="Fertige Videos">${v.map(e => opt('v:media/' + e.name, `${e.name}${e.duration ? ' · ' + fmtS(e.duration) : ''}${e.ok === false ? ' (nicht abspielbar)' : ''}`, e.ok === false)).join('')}</optgroup>`;
+    if (v.length) html += `<optgroup label="Fertige Videos">${v.map(e => opt('v:media/' + e.name, `${e.name}${e.duration ? ' (' + fmtS(e.duration) + ')' : ''}${e.ok === false ? ' (nicht abspielbar)' : ''}`, e.ok === false)).join('')}</optgroup>`;
     return html;
   }
 
@@ -353,7 +361,7 @@
     if (sc.video) {
       const e = lib.get(fileOf(sc.video));
       inner = `<video src="${esc(urlOf(sc.video))}" muted playsinline preload="metadata" data-end></video>`;
-      if (e && e.duration) inner += `<span class="badge">Video · ${fmtS(e.duration)}</span>`;
+      if (e && e.duration) inner += `<span class="badge">Video, ${fmtS(e.duration)}</span>`;
     } else {
       inner = `<div class="mini-visual">${SZ.visualHTML(sc, ICONS, { urlFn: urlOf })}</div>`;
     }
@@ -385,7 +393,7 @@
     }
     if (cur === -1) return renderSettings();
     const n = data.nuggets[cur];
-    if (!n) { editor.innerHTML = '<div class="ed-card">Kein Lernnugget vorhanden. Links „＋ Neu“ wählen.</div>'; return; }
+    if (!n) { editor.innerHTML = '<div class="ed-card">Kein Lernnugget vorhanden. Links „Neues Lernnugget“ wählen.</div>'; return; }
     const katOpts = data.kategorien.map(k => `<option value="${k.id}" ${k.id === n.kategorie ? 'selected' : ''}>${esc(k.name)}</option>`).join('');
     const iconOpts = sel => Object.keys(ICONS).map(k => `<option ${k === sel ? 'selected' : ''}>${k}</option>`).join('');
     const animOpts = sel => SZ.ANIMATIONEN.map(([v, l]) => `<option value="${v}" ${v === (sel || 'fade') ? 'selected' : ''}>${l}</option>`).join('');
@@ -403,7 +411,7 @@
           <label class="field"><span>Sprache</span><select data-f="sprache">
             <option value="de" ${n.sprache !== 'en' ? 'selected' : ''}>Deutsch</option>
             <option value="en" ${n.sprache === 'en' ? 'selected' : ''}>Englisch</option></select></label>
-          <label class="field"><span>Kategorie</span><div class="inline"><select data-f="kategorie">${katOpts}</select><button class="ctrl" id="add-kat" type="button" title="Neue Kategorie">＋</button></div></label>
+          <label class="field"><span>Kategorie</span><div class="inline"><select data-f="kategorie">${katOpts}</select><button class="btn ghost" id="add-kat" type="button">Neue Kategorie</button></div></label>
           ${field('Kurztext', 'kurztext', n.kurztext, { full: true, hint: 'erscheint auf der Kachel' })}
           ${field('Lernziel', 'lernziel', n.lernziel, { full: true, area: true, rows: 2 })}
           ${field('Erklärung', 'langtext', n.langtext, { full: true, area: true, rows: 4 })}
@@ -424,10 +432,10 @@
           <div class="scene" data-k="${k}">
             <div class="scene-head"><strong>Szene ${k + 1}</strong>
               <div class="scene-tools">
-                <button data-act="up" ${k === 0 ? 'disabled' : ''} title="Nach oben">↑</button>
-                <button data-act="down" ${k === n.szenen.length - 1 ? 'disabled' : ''} title="Nach unten">↓</button>
-                <button data-act="dup" title="Duplizieren">⧉</button>
-                <button data-act="del" ${n.szenen.length === 1 ? 'disabled' : ''} title="Löschen">✕</button>
+                <button data-act="up" ${k === 0 ? 'disabled' : ''} title="Nach oben" aria-label="Szene ${k + 1} nach oben">${ICO.up}</button>
+                <button data-act="down" ${k === n.szenen.length - 1 ? 'disabled' : ''} title="Nach unten" aria-label="Szene ${k + 1} nach unten">${ICO.down}</button>
+                <button data-act="dup" title="Duplizieren" aria-label="Szene ${k + 1} duplizieren">${ICO.dup}</button>
+                <button data-act="del" ${n.szenen.length === 1 ? 'disabled' : ''} title="Löschen" aria-label="Szene ${k + 1} löschen">${ICO.del}</button>
               </div></div>
             <div class="scene-left">${stagePreview(n, sc)}<p class="hint-line">Vorschau anklicken = Animation abspielen</p></div>
             <div class="scene-fields">
@@ -448,24 +456,24 @@
             </div>
           </div>`).join('')}
         </div>
-        <div class="add-row" style="margin-top:12px"><button class="btn ghost" id="add-scene">＋ Szene hinzufügen</button></div>
+        <div class="add-row" style="margin-top:12px"><button class="btn ghost" id="add-scene">Szene hinzufügen</button></div>
       </section>
 
       <section class="ed-card">
         <h2>Quiz <span class="small" style="margin:0">optional</span></h2>
         <div class="scenes">${(n.quiz || []).map((q, k) => `
           <div class="qedit" data-q="${k}">
-            <div class="scene-head"><strong>Frage ${k + 1}</strong><div class="scene-tools"><button data-qact="del" title="Frage löschen">✕</button></div></div>
+            <div class="scene-head"><strong>Frage ${k + 1}</strong><div class="scene-tools"><button data-qact="del" title="Frage löschen" aria-label="Frage ${k + 1} löschen">${ICO.del}</button></div></div>
             <label class="field"><span>Frage</span><input data-qf="frage" value="${esc(q.frage)}"></label>
             <div class="field"><span>Antworten <em class="hint">richtige Antwort markieren</em></span>
               ${q.antworten.map((a, j) => `<div class="ans"><input type="radio" name="r${k}" data-qr="${j}" ${q.richtig === j ? 'checked' : ''} aria-label="Antwort ${j + 1} ist richtig">
-                <input data-qa="${j}" value="${esc(a)}" aria-label="Antwort ${j + 1}"><button class="ctrl" data-qdel="${j}" ${q.antworten.length <= 2 ? 'disabled' : ''} title="Antwort entfernen">✕</button></div>`).join('')}
-              ${q.antworten.length < 4 ? '<div><button class="ctrl" data-qadd type="button">＋ Antwort</button></div>' : ''}
+                <input data-qa="${j}" value="${esc(a)}" aria-label="Antwort ${j + 1}"><button class="ctrl icon-btn" data-qdel="${j}" ${q.antworten.length <= 2 ? 'disabled' : ''} title="Antwort entfernen" aria-label="Antwort ${j + 1} entfernen">${ICO.x}</button></div>`).join('')}
+              ${q.antworten.length < 4 ? '<div><button class="ctrl" data-qadd type="button">Antwort hinzufügen</button></div>' : ''}
             </div>
             <label class="field"><span>Erklärung nach dem Antworten</span><textarea data-qf="erklaerung" rows="2">${esc(q.erklaerung)}</textarea></label>
           </div>`).join('')}
         </div>
-        <div class="add-row" style="margin-top:12px"><button class="btn ghost" id="add-q">＋ Frage hinzufügen</button></div>
+        <div class="add-row" style="margin-top:12px"><button class="btn ghost" id="add-q">Frage hinzufügen</button></div>
       </section>`;
     bindEditor(n);
   }
@@ -484,7 +492,7 @@
           <div class="field full"><span>Standard-Stimme für englische Lernnuggets</span>${voiceSelect(m.stimme_en || KAT_STANDARD.en, null, 'me', 'en')}</div>
           <div class="field full"><span>Standard-Hintergrund für alle Lernnuggets</span>${bgEditor(m.hintergrund, null, 'm')}</div>
         </div>
-        <p class="hint-line">Reihenfolge: Hintergrund der Szene → des Lernnuggets → dieser Standard.</p>
+        <p class="hint-line">Ein Hintergrund an der Szene ersetzt den des Lernnuggets, und dieser ersetzt den Standard.</p>
       </section>
       <section class="ed-card"><h2>Vorschau</h2><div class="settings-prev">${stagePreview(null, { icon: 'report', animation: 'pop', stichwort: 'Beispiel-Stichwort' })}</div></section>`;
     editor.querySelectorAll('[data-f]').forEach(el => el.addEventListener('input', () => {
@@ -666,8 +674,8 @@
       ${issues.length ? `<div class="warn"><strong>Bitte prüfen:</strong><ul>${issues.map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>` : '<div class="ok-note">Keine Probleme gefunden.</div>'}
       <ol>
         <li><strong>inhalte.js herunterladen</strong> (Button unten).</li>
-        <li>Auf GitHub ${gh ? `<a href="${gh}/upload/main/data" target="_blank" rel="noopener">den Ordner <code>data</code> öffnen</a>` : 'den Ordner <code>data</code> öffnen'} → „Add file“ → „Upload files“, die Datei <code>inhalte.js</code> hineinziehen und „Commit changes“ klicken. Die alte Datei wird ersetzt.</li>
-        ${toUpload.length ? `<li><strong>Neue Dateien hochladen:</strong> ${gh ? `<a href="${gh}/upload/main/media" target="_blank" rel="noopener">Ordner <code>media</code></a>` : 'Ordner <code>media</code>'} → „Upload files“: ${toUpload.map(x => `<code>${esc(x)}</code>`).join(', ')}</li>` : ''}
+        <li>Auf GitHub ${gh ? `<a href="${gh}/upload/main/data" target="_blank" rel="noopener">den Ordner <code>data</code> öffnen</a>` : 'den Ordner <code>data</code> öffnen'}, dann „Add file“ und „Upload files“ wählen, die Datei <code>inhalte.js</code> hineinziehen und „Commit changes“ klicken. Die alte Datei wird ersetzt.</li>
+        ${toUpload.length ? `<li><strong>Neue Dateien hochladen:</strong> ${gh ? `<a href="${gh}/upload/main/media" target="_blank" rel="noopener">Ordner <code>media</code></a>` : 'Ordner <code>media</code>'}, dann „Upload files“: ${toUpload.map(x => `<code>${esc(x)}</code>`).join(', ')}</li>` : ''}
         <li>Nach etwa 3–5 Minuten ist alles aktuell: Seite, Sprecher für geänderte Texte und die MP4-Downloads (Fortschritt im Reiter „Actions“).</li>
       </ol>`;
     dlg.showModal();

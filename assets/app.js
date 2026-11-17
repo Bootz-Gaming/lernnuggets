@@ -94,16 +94,23 @@
     main.innerHTML = `
       <section class="hero">
         <h1>Was möchten Sie heute lernen?</h1>
-        <p>Kurze Erklärformate in wenigen Szenen: animiertes Icon, Sprechertext und Untertitel. Zum Abschluss ein kurzes Quiz.</p>
+        <p>Kurze Erklärungen in wenigen Szenen, mit Sprecher und Untertiteln. Zum Abschluss prüfen Sie Ihr Wissen in einem kurzen Quiz.</p>
         <div class="search" role="search">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
           <label class="sr" for="q">Lerninhalte durchsuchen</label>
           <input id="q" type="search" autocomplete="off" placeholder="Suchen, z. B. Passwort, 112, Rücken …" value="${esc(ui.query)}">
         </div>
       </section>
-      <div class="chips" role="group" aria-label="Nach Kategorie filtern" id="chips"></div>
-      <p class="result-info" id="info" aria-live="polite"></p>
-      <div class="grid" id="grid"></div>`;
+      <div class="home">
+        <nav class="filter" aria-labelledby="filter-h">
+          <h2 id="filter-h">Kategorien</h2>
+          <div class="chips" role="group" aria-labelledby="filter-h" id="chips"></div>
+        </nav>
+        <section aria-label="Lernnuggets">
+          <p class="result-info" id="info" aria-live="polite"></p>
+          <div class="grid" id="grid"></div>
+        </section>
+      </div>`;
 
     const input = main.querySelector('#q');
     input.addEventListener('input', () => { ui.query = input.value.trim(); drawList(); });
@@ -128,17 +135,18 @@
 
     const grid = main.querySelector('#grid');
     if (!list.length) {
-      grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><strong>Keine Treffer für „${esc(q)}“.</strong><br>Versuchen Sie einen anderen Begriff oder wählen Sie „Alle“.</div>`;
+      grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><strong>Keine Treffer für „${esc(q)}“.</strong><br>Prüfen Sie die Schreibweise, versuchen Sie einen allgemeineren Begriff oder wählen Sie die Kategorie „Alle“.</div>`;
       return;
     }
     grid.innerHTML = list.map(n => `
       <a class="card" href="#/nugget/${n.id}">
-        <div class="card-thumb" data-icon="${esc(n.szenen[0].icon)}" style="${SZ.bgStyle(SZ.hintergrund(DATA.meta, n, n.szenen[0]))}">${thumb(n.szenen[0])}<span class="dur">${n.szenen.length} Szenen · ${fmtDur(nuggetSeconds(n))}</span></div>
+        <div class="card-thumb" data-icon="${esc(n.szenen[0].icon)}" style="${SZ.bgStyle(SZ.hintergrund(DATA.meta, n, n.szenen[0]))}">${thumb(n.szenen[0])}</div>
         <div class="card-body">
-          <div class="meta"><span class="tag">${esc(katName[n.kategorie])}</span>${n.sprache === 'en' ? '<span class="tag lang">EN</span>' : ''}<span class="status ${n.freigabestatus}">${n.freigabestatus === 'freigegeben' ? 'Freigegeben' : 'Entwurf'}</span></div>
+          <span class="card-kat">${esc(katName[n.kategorie])}</span>
           <h2 lang="${n.sprache || 'de'}">${highlight(n.titel, q)}</h2>
           <p lang="${n.sprache || 'de'}">${highlight(n.kurztext, q)}</p>
         </div>
+        <div class="card-foot"><span>${n.szenen.length} Szenen, ${fmtDur(nuggetSeconds(n))}</span><span class="meta">${n.sprache === 'en' ? '<span class="tag lang">Englisch</span>' : ''}<span class="status ${n.freigabestatus}">${n.freigabestatus === 'freigegeben' ? 'Freigegeben' : 'Entwurf'}</span></span></div>
       </a>`).join('');
     wireThumbs(grid);
   }
@@ -149,10 +157,10 @@
     const idx = DATA.nuggets.indexOf(n);
     const prev = DATA.nuggets[idx - 1], next = DATA.nuggets[idx + 1];
     main.innerHTML = `
-      <nav class="crumbs" aria-label="Brotkrumen"><a href="#/">← Alle Lernnuggets</a> / ${esc(katName[n.kategorie])}</nav>
+      <nav class="crumbs" aria-label="Brotkrumen"><a href="#/">Übersicht</a> / ${esc(katName[n.kategorie])}</nav>
       <div class="detail-head">
         <h1>${esc(n.titel)}</h1>
-        <div class="meta"><span class="tag">${esc(katName[n.kategorie])}</span>${n.sprache === 'en' ? '<span class="tag lang">Englisch</span>' : ''}<span class="tag">${n.szenen.length} Szenen · ${fmtDur(nuggetSeconds(n))}</span><span class="status ${n.freigabestatus}">${esc(STATUS[n.freigabestatus] || n.freigabestatus)}</span></div>
+        <div class="meta"><span class="tag">${esc(katName[n.kategorie])}</span>${n.sprache === 'en' ? '<span class="tag lang">Englisch</span>' : ''}<span class="plain">${n.szenen.length} Szenen, ${fmtDur(nuggetSeconds(n))}</span><span class="status ${n.freigabestatus}">${esc(STATUS[n.freigabestatus] || n.freigabestatus)}</span></div>
       </div>
       <div class="detail">
         <div class="player" id="player"></div>
@@ -179,8 +187,8 @@
         ${n.quiz && n.quiz.length ? '<section class="quiz" id="quiz" aria-labelledby="quiz-h"></section>' : ''}
       </div>
       <nav class="pager" aria-label="Weitere Lernnuggets">
-        ${prev ? `<a href="#/nugget/${prev.id}">← ${esc(prev.titel)}</a>` : '<span></span>'}
-        ${next ? `<a href="#/nugget/${next.id}">${esc(next.titel)} →</a>` : ''}
+        ${prev ? `<a href="#/nugget/${prev.id}"><small>Vorheriges Lernnugget</small><span>${esc(prev.titel)}</span></a>` : ''}
+        ${next ? `<a class="next" href="#/nugget/${next.id}"><small>Nächstes Lernnugget</small><span>${esc(next.titel)}</span></a>` : ''}
       </nav>`;
 
     player = new Player(main.querySelector('#player'), n);
@@ -447,7 +455,7 @@
   function renderQuiz(el, n) {
     const answers = new Array(n.quiz.length).fill(null);
     el.innerHTML = `<h2 id="quiz-h">Quiz</h2>
-      <p class="hint">${n.quiz.length} Fragen · Ihr Ergebnis wird nicht gespeichert.</p>
+      <p class="hint">${n.quiz.length} Fragen. Ihr Ergebnis wird nicht gespeichert.</p>
       <div id="qs"></div><div id="score"></div>`;
     const qs = el.querySelector('#qs');
     qs.innerHTML = n.quiz.map((q, k) => `
