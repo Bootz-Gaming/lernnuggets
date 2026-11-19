@@ -74,7 +74,46 @@
   const fileOf = p => String(p || '').split('/').pop();
 
   const published = clone(window.LERN_DATA);
-  let data = store.get(KEY_STUDIO) || clone(published);
+
+  // ---------- Entwurf mit der veröffentlichten Version abgleichen ----------
+  // Gespeichert wird { original, data }: original = veröffentlichter Stand beim Start des Entwurfs.
+  // Hat sich die veröffentlichte Version seitdem geändert, werden unbearbeitete Lernnuggets aktualisiert
+  // und neue übernommen; eigene Änderungen bleiben erhalten.
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  let draftOriginal = clone(published);
+  let mergeHinweis = '';
+  function ladeEntwurf() {
+    const saved = store.get(KEY_STUDIO);
+    if (!saved) return clone(published);
+    const legacy = !saved.data;                      // ältere Entwürfe ohne Ausgangsstand
+    const draft = legacy ? saved : saved.data;
+    const orig = legacy ? null : saved.original;
+    if (orig && same(orig, published)) return draft;
+    if (orig && same(orig, draft)) return clone(published);   // nichts bearbeitet → einfach aktuell
+    const pubById = new Map(published.nuggets.map(n => [n.id, n]));
+    const origById = new Map((orig ? orig.nuggets : []).map(n => [n.id, n]));
+    const draftIds = new Set(draft.nuggets.map(n => n.id));
+    const neu = [], aktualisiert = [];
+    const nuggets = [];
+    draft.nuggets.forEach(n => {
+      const o = origById.get(n.id), pub = pubById.get(n.id);
+      if (o && same(o, n)) { if (pub) { if (!same(pub, n)) aktualisiert.push(pub.titel); nuggets.push(clone(pub)); } }   // unbearbeitet → aktuelle Fassung
+      else nuggets.push(n);                                                  // selbst bearbeitet oder neu angelegt
+    });
+    published.nuggets.forEach(pub => {
+      if (!draftIds.has(pub.id) && !origById.has(pub.id)) { nuggets.push(clone(pub)); neu.push(pub.titel); }
+    });
+    const kat = draft.kategorien.slice();
+    published.kategorien.forEach(k => { if (!kat.some(x => x.id === k.id)) kat.push(clone(k)); });
+    const meta = orig && same(orig.meta, draft.meta) ? clone(published.meta) : Object.assign({}, published.meta, draft.meta, { version: published.meta.version });
+    if (neu.length || aktualisiert.length) {
+      mergeHinweis = [neu.length ? `Neu aus der veröffentlichten Version übernommen: ${neu.join(', ')}.` : '',
+        aktualisiert.length ? `Aktualisiert: ${aktualisiert.join(', ')}.` : ''].filter(Boolean).join(' ');
+    }
+    return Object.assign({}, draft, { meta, kategorien: kat, nuggets });
+  }
+  const speichereEntwurf = () => store.set(KEY_STUDIO, { original: draftOriginal, data });
+  let data = ladeEntwurf();
   data.meta = data.meta || {};
   let cur = data.nuggets.length ? 0 : -1;     // -1 = Einstellungen
 
@@ -252,7 +291,7 @@
   function save() {
     clearTimeout(saveT);
     saveT = setTimeout(() => {
-      const ok = store.set(KEY_STUDIO, data);
+      const ok = speichereEntwurf();
       saveState.textContent = !ok ? 'Entwurf konnte nicht im Browser gespeichert werden'
         : isDirty() ? 'Entwurf gespeichert (in diesem Browser, noch nicht veröffentlicht)' : 'Keine Änderungen gegenüber der veröffentlichten Version';
     }, 300);
@@ -634,7 +673,7 @@
 
   // ---------- Vorschau ----------
   document.getElementById('btn-preview').addEventListener('click', () => {
-    store.set(KEY_STUDIO, data);
+    speichereEntwurf();
     if (!store.set(KEY_PREVIEW, previewData())) { alert('Vorschau konnte nicht im Browser gespeichert werden.'); return; }
     const n = data.nuggets[cur];
     window.open(`index.html?vorschau${n ? '#/nugget/' + encodeURIComponent(n.id) : ''}`, '_blank');
@@ -696,6 +735,7 @@
 
   const akz = SZ.normHex(data.meta.akzentfarbe);
   if (akz) document.documentElement.style.setProperty('--accent', akz);
-  window.addEventListener('beforeunload', () => store.set(KEY_STUDIO, data));
+  window.addEventListener('beforeunload', () => speichereEntwurf());
   renderAll(); save();
+  if (mergeHinweis) setTimeout(() => { saveState.textContent = mergeHinweis; }, 400);
 })();

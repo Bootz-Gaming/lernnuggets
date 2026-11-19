@@ -16,6 +16,7 @@
   const DATA = loadDraft() || window.LERN_DATA;
   const ICONS = window.LERN_ICONS || {};
   const SZ = window.LERN_SZENE;
+  if (!SZ.vollbild) SZ.vollbild = () => false;   // Schutz, falls eine ältere szene.js aus dem Cache kommt
   const DL = window.LERN_DOWNLOADS || {};   // von GitHub erzeugte MP4-Downloads (downloads/index.js)
   const akzent = SZ.normHex(DATA.meta.akzentfarbe);
   if (akzent) document.documentElement.style.setProperty('--accent', akzent);
