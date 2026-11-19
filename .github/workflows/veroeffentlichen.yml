@@ -60,8 +60,12 @@ jobs:
 
       - name: Werkzeuge bereitstellen (ffmpeg, rsvg-convert, Schrift, Pillow)
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg librsvg2-bin fonts-dejavu-core
+          # Paketserver sind gelegentlich kurz nicht erreichbar: bis zu 4 Versuche
+          for i in 1 2 3 4; do
+            sudo apt-get update -qq && sudo apt-get install -y -qq --fix-missing -o Acquire::Retries=3 ffmpeg librsvg2-bin fonts-dejavu-core && break
+            echo "Versuch $i fehlgeschlagen, neuer Versuch in 20 s"; sleep 20
+          done
+          command -v ffmpeg && command -v rsvg-convert
           python3 -m pip install --quiet --break-system-packages pillow || python3 -m pip install --quiet pillow
 
       - name: Piper laden (Stimmen lädt tools/tts.py nach Bedarf)
