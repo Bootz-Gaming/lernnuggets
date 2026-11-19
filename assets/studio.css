@@ -136,3 +136,5 @@ dialog::backdrop { background: rgba(20, 25, 35, .45); }
 .mini-stage.vollbild { padding: 0; grid-template-rows: minmax(0, 1fr); }
 .mini-stage.vollbild .mini-visual { width: 100%; }
 .mini-stage.vollbild .mini-word { display: none; }
+.dlg-h { font-size: 15px; font-weight: 600; margin: 6px 0 0; }
+.copy-fallback { width: 100%; height: 140px; font: 12px/1.4 ui-monospace, Consolas, monospace; border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 8px; }

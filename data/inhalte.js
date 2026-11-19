@@ -877,7 +877,8 @@ window.LERN_DATA = {
           "richtig": 0,
           "erklaerung": "Snap shooting only hits on an unmodified hit roll of 6, regardless of BS or modifiers."
         }
-      ]
+      ],
+      "stimme": "ryan"
     }
   ]
 };

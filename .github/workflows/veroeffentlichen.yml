@@ -47,6 +47,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Hochgeladene inhalte.json übernehmen
+        run: |
+          if [ -f data/inhalte.json ]; then
+            python3 -c "import json; d=json.load(open('data/inhalte.json', encoding='utf-8')); assert d.get('nuggets'), 'keine Lernnuggets'; open('data/inhalte.js', 'w', encoding='utf-8').write('window.LERN_DATA = ' + json.dumps(d, ensure_ascii=False, indent=2) + ';\\n')"
+            git rm -q data/inhalte.json
+            git config user.name "sprecher-bot"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/inhalte.js
+            git commit -m "Inhalte aus hochgeladener inhalte.json übernommen" && git push
+          fi
+
       - name: Werkzeuge bereitstellen (ffmpeg, rsvg-convert, Schrift, Pillow)
         run: |
           sudo apt-get update -qq

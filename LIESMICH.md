@@ -52,8 +52,10 @@ wird flächig eingepasst). Stichwörter werden automatisch lesbar dargestellt: w
 2. Pro Szene unter **„Bildinhalt“** die Grafik wählen, Animation und ggf. Mindestdauer einstellen. Vorschau anklicken = Animation abspielen.
 3. Hintergründe setzen (Standard / Lernnugget / Szene).
 4. **„Vorschau öffnen“** zeigt die komplette Plattform mit deinen Änderungen – nur in deinem Browser.
-5. **„Veröffentlichen …“** führt durch die Schritte: `inhalte.js` herunterladen und in den Ordner `data` hochladen,
-   neue Dateien in den Ordner `media` hochladen. Die Links dorthin stehen im Dialog.
+5. **„Veröffentlichen …“** bietet zwei Wege, beide ohne .js-Download:
+   - **Kopieren und einfügen:** „Inhalte kopieren“, dann `data/inhalte.js` auf GitHub bearbeiten, Strg + A, Strg + V, „Commit changes“.
+   - **Als Datei:** „Als .json herunterladen“ und in den Ordner `data` hochladen – GitHub wandelt sie automatisch um.
+   Neue Medien kommen in den Ordner `media`. Die Links dorthin stehen im Dialog.
 
 **Fertige Videos** (aus AE) gehen weiterhin als Sonderfall: im Bildinhalt unter „Fertige Videos“ wählen.
 Format H.264 als .mov/.mp4 (ProRes läuft in keinem Browser außer Safari), max. 25 MB. Der gewählte Hintergrund ist

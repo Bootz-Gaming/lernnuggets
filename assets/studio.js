@@ -715,20 +715,39 @@
     const gh = repo ? `https://github.com/${repo.owner}/${repo.name}` : null;
     document.getElementById('dlg-body').innerHTML = `
       ${issues.length ? `<div class="warn"><strong>Bitte prüfen:</strong><ul>${issues.map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>` : '<div class="ok-note">Keine Probleme gefunden.</div>'}
+      <h3 class="dlg-h">Weg 1: Kopieren und einfügen (ohne Download)</h3>
       <ol>
-        <li><strong>inhalte.js herunterladen</strong> (Button unten).</li>
-        <li>Auf GitHub ${gh ? `<a href="${gh}/upload/main/data" target="_blank" rel="noopener">den Ordner <code>data</code> öffnen</a>` : 'den Ordner <code>data</code> öffnen'}, dann „Add file“ und „Upload files“ wählen, die Datei <code>inhalte.js</code> hineinziehen und „Commit changes“ klicken. Die alte Datei wird ersetzt.</li>
-        ${toUpload.length ? `<li><strong>Neue Dateien hochladen:</strong> ${gh ? `<a href="${gh}/upload/main/media" target="_blank" rel="noopener">Ordner <code>media</code></a>` : 'Ordner <code>media</code>'}, dann „Upload files“: ${toUpload.map(x => `<code>${esc(x)}</code>`).join(', ')}</li>` : ''}
-        <li>Nach etwa 3–5 Minuten ist alles aktuell: Seite, Sprecher für geänderte Texte und die MP4-Downloads (Fortschritt im Reiter „Actions“).</li>
-      </ol>`;
+        <li>Unten auf <strong>„Inhalte kopieren“</strong> klicken.</li>
+        <li>${gh ? `<a href="${gh}/edit/main/data/inhalte.js" target="_blank" rel="noopener">Datei <code>data/inhalte.js</code> auf GitHub bearbeiten</a>` : 'Auf GitHub die Datei <code>data/inhalte.js</code> öffnen und auf das Stift-Symbol klicken'}.</li>
+        <li>Im Editor <strong>Strg + A</strong> (alles markieren), dann <strong>Strg + V</strong> (einfügen) und oben rechts „Commit changes …“ klicken.</li>
+      </ol>
+      <h3 class="dlg-h">Weg 2: Als Datei hochladen</h3>
+      <p class="hint-line">Unten „Als .json herunterladen“, dann ${gh ? `<a href="${gh}/upload/main/data" target="_blank" rel="noopener">im Ordner <code>data</code> hochladen</a>` : 'im Ordner <code>data</code> hochladen'}. GitHub übernimmt die Datei automatisch.</p>
+      ${toUpload.length ? `<h3 class="dlg-h">Neue Medien hochladen</h3><p class="hint-line">${gh ? `<a href="${gh}/upload/main/media" target="_blank" rel="noopener">Ordner <code>media</code> öffnen</a>` : 'Ordner <code>media</code> öffnen'}, „Upload files“: ${toUpload.map(x => `<code>${esc(x)}</code>`).join(', ')}</p>` : ''}
+      <p class="hint-line">Nach etwa 3–5 Minuten ist alles aktuell: Seite, Sprecher für geänderte Texte und die MP4-Downloads (Fortschritt im Reiter „Actions“).</p>
+      <textarea id="copy-fallback" class="copy-fallback" hidden readonly aria-label="Inhalte zum manuellen Kopieren"></textarea>`;
     dlg.showModal();
   });
-  document.getElementById('btn-download').addEventListener('click', () => {
-    const d = cleanData(data);
-    const js = 'window.LERN_DATA = ' + JSON.stringify(d, null, 2) + ';\n';
+  const exportJs = () => 'window.LERN_DATA = ' + JSON.stringify(cleanData(data), null, 2) + ';\n';
+  document.getElementById('btn-copy').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-copy');
+    const text = exportJs();
+    try {
+      await navigator.clipboard.writeText(text);
+      btn.textContent = 'Kopiert';
+      setTimeout(() => { btn.textContent = 'Inhalte kopieren'; }, 2500);
+    } catch (e) {
+      // Zwischenablage gesperrt: Text zum manuellen Kopieren anzeigen
+      const ta = document.getElementById('copy-fallback');
+      ta.hidden = false; ta.value = text; ta.focus(); ta.select();
+      btn.textContent = 'Markiert – jetzt Strg + C';
+    }
+  });
+  document.getElementById('btn-json').addEventListener('click', () => {
+    const json = JSON.stringify(cleanData(data), null, 2) + '\n';
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([js], { type: 'text/javascript' }));
-    a.download = 'inhalte.js';
+    a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+    a.download = 'inhalte.json';
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   });
