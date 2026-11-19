@@ -8,7 +8,7 @@ window.LERN_DATA = {
       "farbe": "#ffffff"
     },
     "stimme": "thorsten",
-    "stimme_en": "cori"
+    "stimme_en": "ryan"
   },
   "kategorien": [
     {
@@ -54,7 +54,7 @@ window.LERN_DATA = {
       "szenen": [
         {
           "icon": "mail",
-          "animation": "slide-left",
+          "animation": "slide-right",
           "stichwort": "Eine ganz normale Mail?",
           "text": "Eine E-Mail fordert Sie auf, Ihr Passwort dringend zu bestätigen. Sie sieht offiziell aus. Aber ist sie es auch?"
         },
@@ -108,85 +108,9 @@ window.LERN_DATA = {
           "richtig": 2,
           "erklaerung": "Die Meldung hilft der IT, andere Beschäftigte zu warnen. Antworten oder Öffnen kann den Angriff erst auslösen."
         }
-      ]
-    },
-    {
-      "id": "phishing-en",
-      "titel": "Spotting phishing emails",
-      "kategorie": "it-sicherheit",
+      ],
       "sprache": "en",
-      "schlagwoerter": [
-        "email",
-        "phishing",
-        "fraud",
-        "link",
-        "attachment",
-        "English",
-        "Englisch"
-      ],
-      "kurztext": "Recognise suspicious emails in four steps and respond the right way.",
-      "lernziel": "You can recognise typical signs of phishing emails and know how to report them.",
-      "langtext": "Phishing emails try to make you reveal passwords, open a harmful attachment or click a manipulated link. Typical signs are time pressure, threats or unusual rewards. A quick look at the sender address and the real link target exposes many attempts. If in doubt: do not click, report it instead.",
-      "quelle": "Draft based on general IT security recommendations",
-      "freigabestatus": "entwurf",
-      "szenen": [
-        {
-          "icon": "mail",
-          "animation": "slide-left",
-          "stichwort": "Just a normal email?",
-          "text": "An email asks you to confirm your password urgently. It looks official. But is it?"
-        },
-        {
-          "icon": "hook",
-          "animation": "pop",
-          "stichwort": "Pressure and urgency",
-          "text": "Phishing relies on time pressure, threats or tempting offers. That is exactly what should make you click without thinking."
-        },
-        {
-          "icon": "magnifier",
-          "animation": "slide-right",
-          "stichwort": "Check sender and link",
-          "text": "Check the sender address carefully. Hover over the link without clicking and see where it really leads."
-        },
-        {
-          "icon": "report",
-          "animation": "fade",
-          "stichwort": "Report, don't click",
-          "text": "If in doubt: do not click, do not open attachments, and report the email to IT through the official channel."
-        }
-      ],
-      "quiz": [
-        {
-          "frage": "What is a common sign of a phishing email?",
-          "antworten": [
-            "Artificial time pressure or threats",
-            "A friendly greeting",
-            "A logo in the signature"
-          ],
-          "richtig": 0,
-          "erklaerung": "Time pressure and threats are meant to stop you from checking calmly. Logos and greetings are easy to fake."
-        },
-        {
-          "frage": "How do you check a link safely?",
-          "antworten": [
-            "Click it briefly and close it again",
-            "Hover over it without clicking",
-            "Forward it to colleagues"
-          ],
-          "richtig": 1,
-          "erklaerung": "Hovering shows the real link target without opening the page."
-        },
-        {
-          "frage": "What do you do with a suspicious email?",
-          "antworten": [
-            "Reply and ask whether it is genuine",
-            "Open the attachment to be sure",
-            "Report it to IT through the official channel"
-          ],
-          "richtig": 2,
-          "erklaerung": "Reporting helps IT warn others. Replying or opening attachments can trigger the attack."
-        }
-      ]
+      "stimme": "ryan"
     },
     {
       "id": "passwort-mfa",
@@ -564,10 +488,85 @@ window.LERN_DATA = {
           "richtig": 0,
           "erklaerung": "Bringen Sie sich in Sicherheit und holen Sie Unterstützung über die betrieblich vorgesehenen Wege."
         }
+      ]
+    },
+    {
+      "id": "phishing-en",
+      "titel": "Spotting phishing emails",
+      "kategorie": "it-sicherheit",
+      "sprache": "en",
+      "schlagwoerter": [
+        "email",
+        "phishing",
+        "fraud",
+        "link",
+        "attachment",
+        "English",
+        "Englisch"
       ],
-      "hintergrund": {
-        "farbe": "#eef4fa"
-      }
+      "kurztext": "Recognise suspicious emails in four steps and respond the right way.",
+      "lernziel": "You can recognise typical signs of phishing emails and know how to report them.",
+      "langtext": "Phishing emails try to make you reveal passwords, open a harmful attachment or click a manipulated link. Typical signs are time pressure, threats or unusual rewards. A quick look at the sender address and the real link target exposes many attempts. If in doubt: do not click, report it instead.",
+      "quelle": "Draft based on general IT security recommendations",
+      "freigabestatus": "entwurf",
+      "szenen": [
+        {
+          "icon": "mail",
+          "animation": "slide-left",
+          "stichwort": "Just a normal email?",
+          "text": "An email asks you to confirm your password urgently. It looks official. But is it?"
+        },
+        {
+          "icon": "hook",
+          "animation": "pop",
+          "stichwort": "Pressure and urgency",
+          "text": "Phishing relies on time pressure, threats or tempting offers. That is exactly what should make you click without thinking."
+        },
+        {
+          "icon": "magnifier",
+          "animation": "slide-right",
+          "stichwort": "Check sender and link",
+          "text": "Check the sender address carefully. Hover over the link without clicking and see where it really leads."
+        },
+        {
+          "icon": "report",
+          "animation": "fade",
+          "stichwort": "Report, don't click",
+          "text": "If in doubt: do not click, do not open attachments, and report the email to IT through the official channel."
+        }
+      ],
+      "quiz": [
+        {
+          "frage": "What is a common sign of a phishing email?",
+          "antworten": [
+            "Artificial time pressure or threats",
+            "A friendly greeting",
+            "A logo in the signature"
+          ],
+          "richtig": 0,
+          "erklaerung": "Time pressure and threats are meant to stop you from checking calmly. Logos and greetings are easy to fake."
+        },
+        {
+          "frage": "How do you check a link safely?",
+          "antworten": [
+            "Click it briefly and close it again",
+            "Hover over it without clicking",
+            "Forward it to colleagues"
+          ],
+          "richtig": 1,
+          "erklaerung": "Hovering shows the real link target without opening the page."
+        },
+        {
+          "frage": "What do you do with a suspicious email?",
+          "antworten": [
+            "Reply and ask whether it is genuine",
+            "Open the attachment to be sure",
+            "Report it to IT through the official channel"
+          ],
+          "richtig": 2,
+          "erklaerung": "Reporting helps IT warn others. Replying or opening attachments can trigger the attack."
+        }
+      ]
     },
     {
       "id": "wh40k-core-rules",
