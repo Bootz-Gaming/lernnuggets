@@ -1,33 +1,33 @@
 window.LERN_STIMMEN_INFO = {
- "engine": "piper",
+ "engine": "azure",
  "stimmen": {
   "thorsten": {
-   "lizenz": "CC0",
-   "qualitaet": "high"
+   "lizenz": "Azure AI Speech (Vertrag)",
+   "qualitaet": "de-DE-ConradNeural"
   },
   "thorsten-ruhig": {
-   "lizenz": "CC0",
-   "qualitaet": "medium"
+   "lizenz": "Azure AI Speech (Vertrag)",
+   "qualitaet": "de-DE-ConradNeural"
   },
   "thorsten-freundlich": {
-   "lizenz": "CC0",
-   "qualitaet": "medium"
+   "lizenz": "Azure AI Speech (Vertrag)",
+   "qualitaet": "de-DE-ConradNeural"
   },
   "thorsten-ueberrascht": {
-   "lizenz": "CC0",
-   "qualitaet": "medium"
+   "lizenz": "Azure AI Speech (Vertrag)",
+   "qualitaet": "de-DE-ConradNeural"
   },
   "ryan": {
-   "lizenz": "CC BY-NC-SA 4.0 (nicht kommerziell)",
-   "qualitaet": "high"
+   "lizenz": "Azure AI Speech (Vertrag)",
+   "qualitaet": "en-US-GuyNeural"
   },
   "cori": {
-   "lizenz": "public domain",
-   "qualitaet": "high"
+   "lizenz": "Azure AI Speech (Vertrag)",
+   "qualitaet": "en-GB-SoniaNeural"
   },
   "alan": {
-   "lizenz": "siehe https://github.com/MycroftAI/mimic3-voices/blob/master/voices/en_UK/apope_low",
-   "qualitaet": "medium"
+   "lizenz": "Azure AI Speech (Vertrag)",
+   "qualitaet": "en-GB-RyanNeural"
   }
  }
 };
