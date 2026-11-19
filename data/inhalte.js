@@ -2,7 +2,7 @@ window.LERN_DATA = {
   "meta": {
     "titel": "Lernnuggets",
     "untertitel": "Kurze Erklärformate mit animierten Icons",
-    "version": "Prototyp 0.5",
+    "version": "Prototyp 0.6",
     "akzentfarbe": "#0b6fb8",
     "hintergrund": {
       "farbe": "#ffffff"
@@ -26,6 +26,10 @@ window.LERN_DATA = {
     {
       "id": "kundenservice",
       "name": "Kundenservice"
+    },
+    {
+      "id": "wh40k",
+      "name": "Warhammer 40,000"
     }
   ],
   "nuggets": [
@@ -564,6 +568,316 @@ window.LERN_DATA = {
       "hintergrund": {
         "farbe": "#eef4fa"
       }
+    },
+    {
+      "id": "wh40k-core-rules",
+      "titel": "Warhammer 40,000: The core rules",
+      "kategorie": "wh40k",
+      "sprache": "en",
+      "hintergrund": {
+        "farbe": "#f6f4ef"
+      },
+      "schlagwoerter": [
+        "Warhammer",
+        "40k",
+        "Warhammer 40,000",
+        "tabletop",
+        "rules",
+        "dice",
+        "datasheet",
+        "charge",
+        "objectives",
+        "stratagems",
+        "English",
+        "Englisch"
+      ],
+      "kurztext": "From dice and datasheets to charges, cover and stratagems: the core rules in 17 short scenes.",
+      "lernziel": "You can explain how a battle round works, read a datasheet, resolve attacks, charges and fights, and know how cover, objectives and stratagems work.",
+      "langtext": "Warhammer 40,000 is played in battle rounds in which each player takes a turn with five phases: Command, Movement, Shooting, Charge and Fight. Attacks always follow the same sequence of hit roll, wound roll, save roll and damage. Terrain gives cover or hides units, objectives are held by the higher Objective Control, and Command Points pay for stratagems. This is an unofficial summary in our own words; the official Core Rules always take precedence.",
+      "quelle": "Unofficial fan summary, paraphrased from the Warhammer 40,000 Core Rules (Games Workshop). Diagrams: own illustrations.",
+      "freigabestatus": "entwurf",
+      "szenen": [
+        {
+          "icon": "report",
+          "animation": "fade",
+          "grafik": "media/wh40k-01-army-unit-model.png",
+          "darstellung": "vollbild",
+          "mindestdauer": 8,
+          "text": "Warhammer 40,000 is a battle game for two players. Your army is made up of units, and each unit has one or more models that move and fight together. A model's base counts as part of the model. The mission you pick decides the army size, the battlefield and how you win. A battle usually lasts five battle rounds."
+        },
+        {
+          "icon": "report",
+          "animation": "fade",
+          "grafik": "media/wh40k-02-dice-notation.png",
+          "darstellung": "vollbild",
+          "mindestdauer": 8,
+          "text": "The game uses six-sided dice, written D6. 3+ means you need a 3 or more. 2D6 means roll two dice and add them. D3 means roll a D6 and halve it, rounding up. D6+1 means roll a D6 and add one.",
+          "sprechtext": "The game uses six-sided dice, written D six. Three plus means you need a three or more. Two D six means roll two dice and add them. D three means roll a D six and halve it, rounding up. D six plus one means roll a D six and add one."
+        },
+        {
+          "icon": "report",
+          "animation": "fade",
+          "grafik": "media/wh40k-02-measuring.png",
+          "darstellung": "vollbild",
+          "mindestdauer": 8,
+          "text": "Distances are measured in inches, and you can measure at any time. Always measure from the closest part of one base to the closest part of the other, never from the centre."
+        },
+        {
+          "icon": "report",
+          "animation": "fade",
+          "grafik": "media/wh40k-03-datasheet.png",
+          "darstellung": "vollbild",
+          "mindestdauer": 8,
+          "text": "Every unit has a datasheet. M is Move, T is Toughness, Sv is the armour Save, W is Wounds, Ld is Leadership and OC is Objective Control. Each weapon lists its Range, Attacks, the BS or WS needed to hit, Strength, Armour Penetration and Damage. Keywords such as INFANTRY decide which rules apply.",
+          "sprechtext": "Every unit has a datasheet. M is Move, T is Toughness, S v is the armour save, W is Wounds, L d is Leadership and O C is Objective Control. Each weapon lists its range, attacks, the ballistic or weapon skill needed to hit, strength, armour penetration and damage. Keywords such as infantry decide which rules apply."
+        },
+        {
+          "icon": "report",
+          "animation": "fade",
+          "grafik": "media/wh40k-04-turn-structure.png",
+          "darstellung": "vollbild",
+          "mindestdauer": 8,
+          "text": "In each battle round, both players take one turn. Every turn starts with the Start of Turn step, followed by five phases: Command, Movement, Shooting, Charge and Fight. In the Fight phase, units of both players attack. The End of Turn step closes the turn."
+        },
+        {
+          "icon": "report",
+          "animation": "fade",
+          "grafik": "media/wh40k-05-battle-shock.png",
+          "darstellung": "vollbild",
+          "mindestdauer": 8,
+          "text": "In the Command phase, both players gain one Command Point. Then you roll for every unit that is battle-shocked or at or below half its starting strength: roll 2D6. Equal to or above its Leadership, it holds. Below, it is battle-shocked: its OC drops to nothing, it can't be targeted by stratagems and it can't start actions.",
+          "sprechtext": "In the Command phase, both players gain one command point. Then you roll for every unit that is battle-shocked or at or below half its starting strength: roll two D six. Equal to or above its leadership, it holds. Below, it is battle-shocked: its objective control drops to nothing, it can't be targeted by stratagems and it can't start actions."
+        },
+        {
+          "icon": "report",
+          "animation": "fade",
+          "grafik": "media/wh40k-06-move-types.png",
+          "darstellung": "vollbild",
+          "mindestdauer": 8,
+          "text": "In the Movement phase, every unit is selected once. A normal move goes up to the unit's Move. An advance adds a D6, but then the unit can't charge or start an action, and only assault weapons can shoot. Engaged units can fall back, but then they can't shoot, charge or start an action.",
+          "sprechtext": "In the Movement phase, every unit is selected once. A normal move goes up to the unit's move characteristic. An advance adds a D six, but then the unit can't charge or start an action, and only assault weapons can shoot. Engaged units can fall back, but then they can't shoot, charge or start an action."
+        },
+        {
+          "icon": "report",
+          "animation": "fade",
+          "grafik": "media/wh40k-06-coherency-engagement.png",
+          "darstellung": "vollbild",
+          "mindestdauer": 8,
+          "text": "Two distances matter all the time. Coherency: every model must be within 2 inches of another model in its unit and within 9 inches of every model in it. Engagement range: within 2 inches horizontally and 5 inches vertically of an enemy model, your unit is engaged."
+        },
+        {
+          "icon": "report",
+          "animation": "fade",
+          "grafik": "media/wh40k-07-shooting-targets.png",
+          "darstellung": "vollbild",
+          "mindestdauer": 8,
+          "text": "In the Shooting phase, each weapon picks one enemy unit. The target must be visible, within range and not engaged. Units that advanced can still use assault weapons, close-quarters shooting lets engaged units fire, and indirect fire hits targets out of sight, but with worse odds."
+        },
+        {
+          "icon": "report",
+          "animation": "fade",
+          "grafik": "media/wh40k-08-attack-sequence.png",
+          "darstellung": "vollbild",
+          "mindestdauer": 8,
+          "text": "Every attack runs through four steps. Hit roll: match the BS or WS. Wound roll: compare Strength with Toughness. Save roll: the defender rolls, and AP makes armour saves worse. Damage: each failed save removes wounds equal to the weapon's Damage. An unmodified 1 always fails, a 6 to hit or wound is critical.",
+          "sprechtext": "Every attack runs through four steps. Hit roll: match the ballistic or weapon skill. Wound roll: compare strength with toughness. Save roll: the defender rolls, and armour penetration makes armour saves worse. Damage: each failed save removes wounds equal to the weapon's damage. An unmodified one always fails, a six to hit or wound is critical."
+        },
+        {
+          "icon": "report",
+          "animation": "fade",
+          "grafik": "media/wh40k-08-wound-table.png",
+          "darstellung": "vollbild",
+          "mindestdauer": 8,
+          "text": "To wound, compare Strength with Toughness. Double or more needs a 2+. Greater needs a 3+. Equal needs a 4+. Lower needs a 5+. Half or less needs a 6+.",
+          "sprechtext": "To wound, compare strength with toughness. Double or more needs a two plus. Greater needs a three plus. Equal needs a four plus. Lower needs a five plus. Half or less needs a six plus."
+        },
+        {
+          "icon": "report",
+          "animation": "fade",
+          "grafik": "media/wh40k-09-charge.png",
+          "darstellung": "vollbild",
+          "mindestdauer": 8,
+          "text": "To charge, a unit must be within 12 inches of an enemy, not engaged, and must not have advanced or fallen back. Roll 2D6: that is the maximum distance. The unit must end engaged with every unit it targeted. If it makes it, it fights first this turn.",
+          "sprechtext": "To charge, a unit must be within twelve inches of an enemy, not engaged, and must not have advanced or fallen back. Roll two D six: that is the maximum distance. The unit must end engaged with every unit it targeted. If it makes it, it fights first this turn."
+        },
+        {
+          "icon": "report",
+          "animation": "fade",
+          "grafik": "media/wh40k-09-fight-order.png",
+          "darstellung": "vollbild",
+          "mindestdauer": 8,
+          "text": "The Fight phase has four steps. Pile in up to 3 inches. Then Fights First units attack, players alternating, starting with the player whose turn it is. Then all remaining engaged units fight, again alternating. Finally, consolidate up to 3 inches towards the enemy or an objective."
+        },
+        {
+          "icon": "report",
+          "animation": "fade",
+          "grafik": "media/wh40k-10-terrain-categories.png",
+          "darstellung": "vollbild",
+          "mindestdauer": 8,
+          "text": "Terrain comes in three categories. Exposed terrain, like craters or debris, barely protects. Light terrain, like barricades or low walls, can give cover. Dense terrain, like ruins or woods, blocks sight and movement."
+        },
+        {
+          "icon": "report",
+          "animation": "fade",
+          "grafik": "media/wh40k-10-cover-hidden.png",
+          "darstellung": "vollbild",
+          "mindestdauer": 8,
+          "text": "A unit has the benefit of cover if every model is infantry, beasts or swarm inside a terrain area, or not fully visible because of terrain. Cover worsens the attacker's BS by one, so a 3+ becomes a 4+. Infantry in dense terrain that did not shoot this turn or last turn are hidden and can only be seen from within 15 inches.",
+          "sprechtext": "A unit has the benefit of cover if every model is infantry, beasts or swarm inside a terrain area, or not fully visible because of terrain. Cover worsens the attacker's ballistic skill by one, so a three plus becomes a four plus. Infantry in dense terrain that did not shoot this turn or last turn are hidden and can only be seen from within fifteen inches."
+        },
+        {
+          "icon": "report",
+          "animation": "fade",
+          "grafik": "media/wh40k-11-objective-control.png",
+          "darstellung": "vollbild",
+          "mindestdauer": 8,
+          "text": "At the end of every phase and turn, each player adds up the OC of their models on an objective. The higher total controls it. On a tie, nobody does, unless one player has secured it. Battle-shocked models count as zero, so morale can cost you objectives.",
+          "sprechtext": "At the end of every phase and turn, each player adds up the objective control of their models on an objective. The higher total controls it. On a tie, nobody does, unless one player has secured it. Battle-shocked models count as zero, so morale can cost you objectives."
+        },
+        {
+          "icon": "report",
+          "animation": "fade",
+          "grafik": "media/wh40k-12-stratagem-card.png",
+          "darstellung": "vollbild",
+          "mindestdauer": 8,
+          "text": "Command Points pay for stratagems. Each one lists when to use it, its target and its effect. You can't use the same stratagem twice in one phase, and a unit can normally only be targeted by one stratagem per phase. Command Re-roll lets you re-roll a single roll. That's the core rules. Now test yourself in the quiz!",
+          "sprechtext": "Command points pay for stratagems. Each one lists when to use it, its target and its effect. You can't use the same stratagem twice in one phase, and a unit can normally only be targeted by one stratagem per phase. Command re-roll lets you re-roll a single roll. That's the core rules. Now test yourself in the quiz!"
+        }
+      ],
+      "quiz": [
+        {
+          "frage": "What tells you how to win a game of Warhammer 40,000?",
+          "antworten": [
+            "The number of models left",
+            "The mission",
+            "The player who goes first",
+            "The Codex"
+          ],
+          "richtig": 1,
+          "erklaerung": "Every game is played using a mission, and the mission states what each player must do to win."
+        },
+        {
+          "frage": "You roll a D3 and the die shows a 5. What is the result?",
+          "antworten": [
+            "1",
+            "2",
+            "3",
+            "5"
+          ],
+          "richtig": 2,
+          "erklaerung": "D3 means halving the D6 result and rounding up: 5 ÷ 2 = 2.5, rounded up to 3."
+        },
+        {
+          "frage": "Which characteristic shows how well a model holds objectives?",
+          "antworten": [
+            "Ld",
+            "W",
+            "OC",
+            "Sv"
+          ],
+          "richtig": 2,
+          "erklaerung": "OC stands for Objective Control. Models with an OC of '-' cannot control objectives at all."
+        },
+        {
+          "frage": "Which phase comes directly after the Shooting phase?",
+          "antworten": [
+            "Charge phase",
+            "Fight phase",
+            "Movement phase",
+            "Command phase"
+          ],
+          "richtig": 0,
+          "erklaerung": "The order is Command, Movement, Shooting, Charge, Fight."
+        },
+        {
+          "frage": "A unit started with 10 models and now has 5. What must you do in your Command phase?",
+          "antworten": [
+            "Remove it from the battle",
+            "Gain an extra CP",
+            "Nothing, it is still above half-strength",
+            "Make a battle-shock roll for it"
+          ],
+          "richtig": 3,
+          "erklaerung": "5 of 10 models is exactly half-strength, and units at or below half-strength must make a battle-shock roll."
+        },
+        {
+          "frage": "Your unit advanced this turn. What can it still do?",
+          "antworten": [
+            "Shoot with all its weapons",
+            "Shoot with assault weapons",
+            "Start an action",
+            "Declare a charge"
+          ],
+          "richtig": 1,
+          "erklaerung": "After an advance, a unit can't charge or start an action, and it can only use assault shooting with [ASSAULT] weapons."
+        },
+        {
+          "frage": "Which of these enemy units can be targeted with normal shooting?",
+          "antworten": [
+            "A unit that is engaged in combat with your infantry",
+            "A unit out of the weapon's range",
+            "A unit hidden behind a solid wall",
+            "A visible unit in range that is not engaged"
+          ],
+          "richtig": 3,
+          "erklaerung": "A target must be visible, within range and unengaged."
+        },
+        {
+          "frage": "A Strength 4 weapon attacks a Toughness 8 target. What do you need to wound?",
+          "antworten": [
+            "4+",
+            "6+",
+            "3+",
+            "5+"
+          ],
+          "richtig": 1,
+          "erklaerung": "Strength 4 is half of Toughness 8, so you need a 6+."
+        },
+        {
+          "frage": "Your unit is 10\" away from the enemy and you roll a 7 for the charge. What happens?",
+          "antworten": [
+            "The charge fails – 7\" is not enough to reach",
+            "The unit advances instead",
+            "The charge succeeds automatically",
+            "You can re-roll for free"
+          ],
+          "richtig": 0,
+          "erklaerung": "The 2D6 roll is the maximum distance. Without a re-roll (for example the Command Re-roll stratagem), 7\" is not enough to reach a unit 10\" away."
+        },
+        {
+          "frage": "Your infantry unit is in cover. The attacker's weapon normally hits on a 3+. What does it need now?",
+          "antworten": [
+            "4+",
+            "5+",
+            "2+",
+            "3+"
+          ],
+          "richtig": 0,
+          "erklaerung": "The benefit of cover worsens the attack's BS by 1, so 3+ becomes 4+."
+        },
+        {
+          "frage": "Blue has OC 5 on an objective, Red has OC 5. Nobody has secured it. Who controls it?",
+          "antworten": [
+            "Nobody",
+            "Blue",
+            "Red",
+            "The player whose turn it is"
+          ],
+          "richtig": 0,
+          "erklaerung": "With equal levels of control and no secured objective, neither player controls it."
+        },
+        {
+          "frage": "When shooting with Fire Overwatch, what do you need to hit?",
+          "antworten": [
+            "An unmodified 6",
+            "A 4+",
+            "BS worsened by 1",
+            "The weapon's normal BS"
+          ],
+          "richtig": 0,
+          "erklaerung": "Snap shooting only hits on an unmodified hit roll of 6, regardless of BS or modifiers."
+        }
+      ]
     }
   ]
 };

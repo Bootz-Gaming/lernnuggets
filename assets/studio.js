@@ -226,7 +226,8 @@
       if (n.sprache !== 'en') delete n.sprache;
       const nb = cleanBg(n.hintergrund); if (nb) n.hintergrund = nb; else delete n.hintergrund;
       n.szenen.forEach(sc => {
-        ['sprechtext', 'video', 'grafik', 'stichwort', 'stimme'].forEach(k => { if (sc[k] === '' || sc[k] == null) delete sc[k]; });
+        ['sprechtext', 'video', 'grafik', 'stichwort', 'stimme', 'darstellung'].forEach(k => { if (sc[k] === '' || sc[k] == null) delete sc[k]; });
+        if (!sc.grafik) delete sc.darstellung;
         if (!sc.video) delete sc.laenge;
         if (!(+sc.mindestdauer > 0)) delete sc.mindestdauer; else sc.mindestdauer = +sc.mindestdauer;
         const sb = cleanBg(sc.hintergrund); if (sb) sc.hintergrund = sb; else delete sc.hintergrund;
@@ -365,7 +366,7 @@
     } else {
       inner = `<div class="mini-visual">${SZ.visualHTML(sc, ICONS, { urlFn: urlOf })}</div>`;
     }
-    return `<div class="mini-stage" data-ton="${SZ.ton(bg)}" style="${SZ.bgStyle(bg, urlOf)}" title="Klicken zum Abspielen">
+    return `<div class="mini-stage${SZ.vollbild(sc) ? ' vollbild' : ''}" data-ton="${SZ.ton(bg)}" style="${SZ.bgStyle(bg, urlOf)}" title="Klicken zum Abspielen">
       ${inner}${sc.stichwort ? `<div class="mini-word">${esc(sc.stichwort)}</div>` : ''}</div>`;
   }
 
@@ -447,7 +448,10 @@
                 <label class="field"><span>Mindestdauer</span><select data-sf="dauerwahl">${durOpts(sc.mindestdauer)}</select></label>
                 <label class="field dauer-frei" ${DAUERN.some(([v]) => v === String(sc.mindestdauer || '')) ? 'hidden' : ''}><span>Sekunden</span><input type="number" min="1" max="60" step="0.5" data-sf="mindestdauer" value="${esc(sc.mindestdauer || '')}"></label>
               </div>
-              ${sc.grafik ? '' : `<label class="field"><span>Platzhalter-Icon</span><select data-sf="icon">${iconOpts(sc.icon)}</select></label>`}`}
+              ${sc.grafik ? `<label class="field"><span>Darstellung</span><select data-sf="darstellung">
+                <option value="" ${sc.darstellung !== 'vollbild' ? 'selected' : ''}>Grafik mittig, mit Stichwort</option>
+                <option value="vollbild" ${sc.darstellung === 'vollbild' ? 'selected' : ''}>Vollbild (fertige Erklärgrafik mit eigenem Titel)</option></select></label>`
+                : `<label class="field"><span>Platzhalter-Icon</span><select data-sf="icon">${iconOpts(sc.icon)}</select></label>`}`}
               <label class="field"><span>Stichwort auf der Bühne</span><input data-sf="stichwort" value="${esc(sc.stichwort)}"></label>
               <label class="field"><span>Sprechertext / Untertitel</span><textarea data-sf="text" rows="3">${esc(sc.text)}</textarea></label>
               <label class="field"><span>Aussprache <em class="hint">optional, z. B. „eins, eins, zwei“ statt „112“</em></span><input data-sf="sprechtext" value="${esc(sc.sprechtext)}"></label>
@@ -579,7 +583,7 @@
         }
         if (f === 'mindestdauer') { const v = parseFloat(inp.value); if (v > 0) sc.mindestdauer = v; else delete sc.mindestdauer; return save(); }
         sc[f] = inp.value;
-        if (['icon', 'animation', 'stichwort'].includes(f)) refresh();
+        if (['icon', 'animation', 'stichwort', 'darstellung'].includes(f)) refresh();
         save();
       }));
       bindVoice(el.querySelector(`[data-voice="s${k}"]`), () => sc.stimme, v => { if (v) sc.stimme = v; else delete sc.stimme; }, () => stimmeVon(n, null));

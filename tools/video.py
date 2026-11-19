@@ -29,7 +29,7 @@ from PIL import Image, ImageDraw, ImageFont
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "downloads"
 W, H, FPS = 1920, 1080, 30
-VERSION = "video-5"           # erhöhen, wenn sich das Rendering ändert → alles neu
+VERSION = "video-6"           # erhöhen, wenn sich das Rendering ändert → alles neu
 INK, WHITE = (31, 36, 48), (255, 255, 255)
 BOX = (int(W * 0.58), int(H * 0.70))   # Fläche für die Grafik
 BOX_Y = int(H * 0.07)
@@ -184,12 +184,14 @@ def with_alpha(im, a):
     return Image.merge("RGBA", (r, g, b, al))
 
 
-def render_frames(bgimg, graphic, anim, word, frames):
+def render_frames(bgimg, graphic, anim, word, frames, box_y=None, box_h=None):
     """Liefert die animierten Frames (RGB-Bytes) für den Szenenanfang."""
     dur, _ = ANIM.get(anim, ANIM["fade"])
     ease = EASE.get(anim, EASE["fade"])
     gx0 = (W - graphic.width) // 2
-    gy0 = BOX_Y + (BOX[1] - graphic.height) // 2
+    box_y = BOX_Y if box_y is None else box_y
+    box_h = BOX[1] if box_h is None else box_h
+    gy0 = box_y + (box_h - graphic.height) // 2
     for i in range(frames):
         t = i / FPS
         e = ease(min(1.0, t / dur))
@@ -250,6 +252,7 @@ def build_scene(meta, n, k, sc, audio, tmp, bgcache):
     if video:
         print(f"    Hinweis: Video {sc['video']} fehlt – nutze Grafik/Platzhalter")
     gpath = ROOT / sc["grafik"] if sc.get("grafik") else None
+    vollbild = bool(gpath and gpath.exists() and sc.get("darstellung") == "vollbild")
     if not (gpath and gpath.exists()):
         if gpath: print(f"    Hinweis: Grafik {sc['grafik']} fehlt – nutze Platzhalter")
         gpath = ROOT / "assets" / "platzhalter" / f"{sc.get('icon') or 'report'}.svg"
@@ -257,6 +260,9 @@ def build_scene(meta, n, k, sc, audio, tmp, bgcache):
         box = (int(W * 0.50), BOX[1])        # Platzhalter etwas kleiner, wie im Player
     else:
         box = BOX
+    if vollbild:
+        box = (W, H)
+        word = Image.new("RGBA", (W, H), (0, 0, 0, 0))   # Titel steckt in der Grafik
     graphic = load_image(gpath, box, accent=accent)
     dur = max(base, float(sc.get("mindestdauer") or 0), ANIM_FRAMES / FPS + 0.2)
     ain, afil = audio_input(audio, dur)
@@ -266,7 +272,8 @@ def build_scene(meta, n, k, sc, audio, tmp, bgcache):
            "-r", str(FPS), "-i", "-", *ain, "-filter_complex", fc, "-map", "[v]", "-map", "[a]",
            "-t", f"{dur:.3f}", *ENC, str(out)]
     p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-    for fr in render_frames(bgimg, graphic, sc.get("animation") or "fade", word, ANIM_FRAMES):
+    for fr in render_frames(bgimg, graphic, sc.get("animation") or "fade", word, ANIM_FRAMES,
+                            box_y=0 if vollbild else None, box_h=H if vollbild else None):
         p.stdin.write(fr)
     p.stdin.close()
     err = p.stderr.read(); p.wait()

@@ -23,6 +23,29 @@
   const katName = Object.fromEntries(DATA.kategorien.map(k => [k.id, k.name]));
   const STATUS = { entwurf: 'Entwurf – fachlich ungeprüft', freigegeben: 'Fachlich freigegeben' };
 
+  // Bedienelemente der Detailseite in der Sprache des Lernnuggets (Deutsch oder Englisch)
+  const TX = {
+    de: { overview: 'Übersicht', crumbs: 'Brotkrumen', english: 'Englisch', scenes: n => `${n} Szenen`, sec: 'Sek.', min: 'Min.', approx: 'ca.',
+      goal: 'Lernziel', explain: 'Erklärung', transcript: n => `Transkript (${n} Szenen)`, keywords: 'Schlagwörter', source: 'Quelle', status: 'Status',
+      st: { entwurf: 'Entwurf – fachlich ungeprüft', freigegeben: 'Fachlich freigegeben' }, more: 'Weitere Lernnuggets', prev: 'Vorheriges Lernnugget', next: 'Nächstes Lernnugget',
+      video: 'Video', videoSoon: 'Der MP4-Download wird nach dem Veröffentlichen automatisch erzeugt.', download: 'Video herunterladen (MP4)',
+      dlNote: 'Mit Sprecher; Untertitel im Player zuschaltbar.', srt: 'Untertitel als .srt', done: 'Geschafft!', toQuizText: 'Prüfen Sie Ihr Wissen im Quiz.',
+      again: 'Nochmal ansehen', toQuiz: 'Zum Quiz', play: 'Abspielen', pause: 'Pause', prevScene: 'Vorherige Szene', nextScene: 'Nächste Szene', sound: 'Ton', subs: 'Untertitel',
+      scene: k => `Szene ${k}`, playVideo: 'Erklärvideo abspielen', soundOff: 'Ton aus – Wiedergabe mit Untertiteln im Lesetempo.',
+      quizHint: n => `${n} Fragen. Ihr Ergebnis wird nicht gespeichert.`, right: 'Richtig.', wrong: 'Nicht ganz.', score: (r, n) => `${r} von ${n} richtig`,
+      allRight: 'Sehr gut, alles verstanden.', noVoice: 'Keine Sprachdatei vorhanden – Wiedergabe mit Untertiteln.', localVoice: name => `Keine Sprachdatei vorhanden – Vorlesen mit der Systemstimme „${name}“.`, notAll: 'Schauen Sie sich die markierten Fragen noch einmal an.', retry: 'Quiz wiederholen' },
+    en: { overview: 'Overview', crumbs: 'Breadcrumb', english: 'English', scenes: n => `${n} scenes`, sec: 'sec', min: 'min', approx: 'approx.',
+      goal: 'Learning goal', explain: 'Explanation', transcript: n => `Transcript (${n} scenes)`, keywords: 'Keywords', source: 'Source', status: 'Status',
+      st: { entwurf: 'Draft – not yet reviewed', freigegeben: 'Reviewed' }, more: 'More learning nuggets', prev: 'Previous', next: 'Next',
+      video: 'Video', videoSoon: 'The MP4 download is created automatically after publishing.', download: 'Download video (MP4)',
+      dlNote: 'With narration; subtitles can be switched on in your player.', srt: 'Subtitles as .srt', done: 'Done!', toQuizText: 'Test your knowledge in the quiz.',
+      again: 'Watch again', toQuiz: 'Go to quiz', play: 'Play', pause: 'Pause', prevScene: 'Previous scene', nextScene: 'Next scene', sound: 'Sound', subs: 'Subtitles',
+      scene: k => `Scene ${k}`, playVideo: 'Play explainer', soundOff: 'Sound off – playback with subtitles at reading speed.',
+      quizHint: n => `${n} questions. Your result is not saved.`, right: 'Correct.', wrong: 'Not quite.', score: (r, n) => `${r} of ${n} correct`,
+      allRight: 'Great, you got everything.', noVoice: 'No narration file available – playing with subtitles.', localVoice: name => `No narration file available – read aloud by the system voice “${name}”.`, notAll: 'Have another look at the marked questions.', retry: 'Retake quiz' }
+  };
+  let T = TX.de;
+
   // Zustand nur im Arbeitsspeicher (keine Speicherung)
   const ui = { query: '', kat: 'alle', ton: true, untertitel: true, voiceURI: null };
 
@@ -59,7 +82,7 @@
       endFrame(v);
     });
   }
-  const fmtDur = sec => sec < 60 ? `${Math.round(sec / 5) * 5} Sek.` : `ca. ${Math.round(sec / 60)} Min.`;
+  const fmtDur = (sec, t = TX.de) => sec < 60 ? `${Math.round(sec / 5) * 5} ${t.sec}` : `${t.approx} ${Math.round(sec / 60)} ${t.min}`;
 
   function highlight(text, q) {
     if (!q) return esc(text);
@@ -140,7 +163,7 @@
     }
     grid.innerHTML = list.map(n => `
       <a class="card" href="#/nugget/${n.id}">
-        <div class="card-thumb" data-icon="${esc(n.szenen[0].icon)}" style="${SZ.bgStyle(SZ.hintergrund(DATA.meta, n, n.szenen[0]))}">${thumb(n.szenen[0])}</div>
+        <div class="card-thumb${SZ.vollbild(n.szenen[0]) ? ' vollbild' : ''}" data-icon="${esc(n.szenen[0].icon)}" style="${SZ.bgStyle(SZ.hintergrund(DATA.meta, n, n.szenen[0]))}">${thumb(n.szenen[0])}</div>
         <div class="card-body">
           <span class="card-kat">${esc(katName[n.kategorie])}</span>
           <h2 lang="${n.sprache || 'de'}">${highlight(n.titel, q)}</h2>
@@ -154,31 +177,32 @@
   // ---------- Detailseite ----------
   function renderDetail(n) {
     document.title = `${n.titel} – ${DATA.meta.titel}`;
+    T = TX[n.sprache === 'en' ? 'en' : 'de'];
     const idx = DATA.nuggets.indexOf(n);
     const prev = DATA.nuggets[idx - 1], next = DATA.nuggets[idx + 1];
     main.innerHTML = `
-      <nav class="crumbs" aria-label="Brotkrumen"><a href="#/">Übersicht</a> / ${esc(katName[n.kategorie])}</nav>
+      <nav class="crumbs" aria-label="${T.crumbs}"><a href="#/">${T.overview}</a> / ${esc(katName[n.kategorie])}</nav>
       <div class="detail-head">
         <h1>${esc(n.titel)}</h1>
-        <div class="meta"><span class="tag">${esc(katName[n.kategorie])}</span>${n.sprache === 'en' ? '<span class="tag lang">Englisch</span>' : ''}<span class="plain">${n.szenen.length} Szenen, ${fmtDur(nuggetSeconds(n))}</span><span class="status ${n.freigabestatus}">${esc(STATUS[n.freigabestatus] || n.freigabestatus)}</span></div>
+        <div class="meta"><span class="tag">${esc(katName[n.kategorie])}</span>${n.sprache === 'en' ? `<span class="tag lang">${T.english}</span>` : ''}<span class="plain">${T.scenes(n.szenen.length)}, ${fmtDur(nuggetSeconds(n), T)}</span><span class="status ${n.freigabestatus}">${esc(T.st[n.freigabestatus] || n.freigabestatus)}</span></div>
       </div>
       <div class="detail">
         <div class="player" id="player"></div>
         <aside class="side">
           <div class="panel">
-            <h2>Lernziel</h2><p>${esc(n.lernziel)}</p>
-            <h2>Erklärung</h2><p>${esc(n.langtext)}</p>
+            <h2>${T.goal}</h2><p>${esc(n.lernziel)}</p>
+            <h2>${T.explain}</h2><p>${esc(n.langtext)}</p>
           </div>
           <div class="panel">
-            <details class="transcript"><summary>Transkript (${n.szenen.length} Szenen)</summary>
-              <ol>${n.szenen.map(s => `<li><strong>${esc(s.stichwort)}</strong>${esc(s.text)}</li>`).join('')}</ol>
+            <details class="transcript"><summary>${T.transcript(n.szenen.length)}</summary>
+              <ol>${n.szenen.map(s => `<li>${s.stichwort ? `<strong>${esc(s.stichwort)}</strong>` : ''}${esc(s.text)}</li>`).join('')}</ol>
             </details>
           </div>
           <div class="panel">
             <dl class="kv">
-              <dt>Schlagwörter</dt><dd>${n.schlagwoerter.map(esc).join(', ')}</dd>
-              <dt>Quelle</dt><dd>${esc(n.quelle)}</dd>
-              <dt>Status</dt><dd>${esc(STATUS[n.freigabestatus] || n.freigabestatus)}</dd>
+              <dt>${T.keywords}</dt><dd>${n.schlagwoerter.map(esc).join(', ')}</dd>
+              <dt>${T.source}</dt><dd>${esc(n.quelle)}</dd>
+              <dt>${T.status}</dt><dd>${esc(T.st[n.freigabestatus] || n.freigabestatus)}</dd>
               <dt>ID</dt><dd><code>${esc(n.id)}</code></dd>
             </dl>
           </div>
@@ -186,9 +210,9 @@
         </aside>
         ${n.quiz && n.quiz.length ? '<section class="quiz" id="quiz" aria-labelledby="quiz-h"></section>' : ''}
       </div>
-      <nav class="pager" aria-label="Weitere Lernnuggets">
-        ${prev ? `<a href="#/nugget/${prev.id}"><small>Vorheriges Lernnugget</small><span>${esc(prev.titel)}</span></a>` : ''}
-        ${next ? `<a class="next" href="#/nugget/${next.id}"><small>Nächstes Lernnugget</small><span>${esc(next.titel)}</span></a>` : ''}
+      <nav class="pager" aria-label="${T.more}">
+        ${prev ? `<a href="#/nugget/${prev.id}"><small>${T.prev}</small><span>${esc(prev.titel)}</span></a>` : ''}
+        ${next ? `<a class="next" href="#/nugget/${next.id}"><small>${T.next}</small><span>${esc(next.titel)}</span></a>` : ''}
       </nav>`;
 
     player = new Player(main.querySelector('#player'), n);
@@ -200,11 +224,11 @@
 
   function downloadPanel(n) {
     const d = DL[n.id];
-    if (!d || VORSCHAU) return VORSCHAU ? '<div class="panel"><h2>Video</h2><p class="small-note">Der MP4-Download wird nach dem Veröffentlichen automatisch erzeugt.</p></div>' : '';
-    const mb = d.groesse ? ` (${(d.groesse / 1048576).toLocaleString('de-DE', { maximumFractionDigits: 1 })} MB)` : '';
-    return `<div class="panel"><h2>Video</h2>
-      <a class="btn dl-btn" href="${esc(d.mp4)}" download>Video herunterladen (MP4)${mb}</a>
-      <p class="small-note">Mit Sprecher; Untertitel im Player zuschaltbar. ${d.srt ? `<a href="${esc(d.srt)}" download>Untertitel als .srt</a>` : ''}</p></div>`;
+    if (!d || VORSCHAU) return VORSCHAU ? `<div class="panel"><h2>${T.video}</h2><p class="small-note">${T.videoSoon}</p></div>` : '';
+    const mb = d.groesse ? ` (${(d.groesse / 1048576).toLocaleString(T === TX.en ? 'en-GB' : 'de-DE', { maximumFractionDigits: 1 })} MB)` : '';
+    return `<div class="panel"><h2>${T.video}</h2>
+      <a class="btn dl-btn" href="${esc(d.mp4)}" download>${T.download}${mb}</a>
+      <p class="small-note">${T.dlNote} ${d.srt ? `<a href="${esc(d.srt)}" download>${T.srt}</a>` : ''}</p></div>`;
   }
 
   // ---------- Sprachausgabe ----------
@@ -246,19 +270,19 @@
         <div class="stage" id="stage" aria-label="Erklärvideo ${esc(n.titel)}">
           <div class="stage-inner"><div class="stage-visual" id="visual"></div><div class="stage-word" id="word"></div></div>
           <span class="stage-count" id="count"></span>
-          <div class="overlay" id="ov-start"><button class="big-play" id="bigplay" aria-label="Erklärvideo abspielen">${ICON_SVG.play}</button></div>
-          <div class="overlay" id="ov-end" hidden><div class="end"><strong>Geschafft!</strong><span>Prüfen Sie Ihr Wissen im Quiz.</span>
-            <div class="row"><button class="btn ghost" id="again">${'Nochmal ansehen'}</button>${n.quiz && n.quiz.length ? '<a class="btn" href="#quiz" id="toquiz">Zum Quiz</a>' : ''}</div></div></div>
+          <div class="overlay" id="ov-start"><button class="big-play" id="bigplay" aria-label="${T.playVideo}">${ICON_SVG.play}</button></div>
+          <div class="overlay" id="ov-end" hidden><div class="end"><strong>${T.done}</strong><span>${T.toQuizText}</span>
+            <div class="row"><button class="btn ghost" id="again">${T.again}</button>${n.quiz && n.quiz.length ? `<a class="btn" href="#quiz" id="toquiz">${T.toQuiz}</a>` : ''}</div></div></div>
         </div>
         <div class="caption" id="cap" aria-live="polite"></div>
-        <div class="progress" id="prog">${n.szenen.map((s, k) => `<button class="seg" data-k="${k}" aria-label="Szene ${k + 1}: ${esc(s.stichwort)}"><span></span></button>`).join('')}</div>
+        <div class="progress" id="prog">${n.szenen.map((s, k) => `<button class="seg" data-k="${k}" aria-label="${T.scene(k + 1)}${s.stichwort ? ': ' + esc(s.stichwort) : ''}"><span></span></button>`).join('')}</div>
         <div class="controls">
-          <button class="ctrl primary" id="pp" aria-label="Abspielen">${ICON_SVG.play}<span>Abspielen</span></button>
-          <button class="ctrl" id="prev" aria-label="Vorherige Szene">${ICON_SVG.prev}</button>
-          <button class="ctrl" id="next" aria-label="Nächste Szene">${ICON_SVG.next}</button>
+          <button class="ctrl primary" id="pp" aria-label="${T.play}">${ICON_SVG.play}<span>${T.play}</span></button>
+          <button class="ctrl" id="prev" aria-label="${T.prevScene}">${ICON_SVG.prev}</button>
+          <button class="ctrl" id="next" aria-label="${T.nextScene}">${ICON_SVG.next}</button>
           <span class="spacer"></span>
-          <button class="ctrl" id="snd" aria-pressed="${ui.ton}">${ICON_SVG.sound}<span>Ton</span></button>
-          <button class="ctrl" id="cc" aria-pressed="${ui.untertitel}">${ICON_SVG.cc}<span>Untertitel</span></button>
+          <button class="ctrl" id="snd" aria-pressed="${ui.ton}">${ICON_SVG.sound}<span>${T.sound}</span></button>
+          <button class="ctrl" id="cc" aria-pressed="${ui.untertitel}">${ICON_SVG.cc}<span>${T.subs}</span></button>
         </div>
         <div class="voice-info" id="vinfo"></div>`;
       const $ = s => el.querySelector(s);
@@ -286,11 +310,14 @@
       this.updateVoiceInfo();
     }
 
+    // Hinweis nur, wenn keine Sprachdatei genutzt wird (Rückfall auf Systemstimme oder Untertitel)
     updateVoiceInfo() {
       const v = tts.voice(this.n.sprache);
-      const t = !ui.ton ? 'Ton aus – Wiedergabe mit Untertiteln im Lesetempo.'
-        : `Sprecher: Audiodatei aus dem Ordner „audio“, falls vorhanden. Sonst ${v ? `lokale Systemstimme „${v.name}“ (offline)` : `keine lokale ${this.n.sprache === 'en' ? 'englische' : 'deutsche'} Systemstimme gefunden – Wiedergabe ohne Ton`}.`;
-      this.$('#vinfo').textContent = t + (this.source ? ` Aktuell: ${this.source}.` : '');
+      let t = '';
+      if (!ui.ton) t = T.soundOff;
+      else if (this.source === 'local' && v) t = T.localVoice(v.name);
+      else if (this.source === 'subs') t = T.noVoice;
+      this.$('#vinfo').textContent = t;
     }
 
     render(i) {
@@ -301,6 +328,7 @@
       const stage = this.$('#stage');
       stage.setAttribute('style', SZ.bgStyle(bg));
       stage.dataset.ton = SZ.ton(bg);
+      stage.classList.toggle('vollbild', SZ.vollbild(sc));
       this.video = null; this.vDone = true; this.vFrac = 1;
       if (sc.video) {
         // Eigene AE-Animation: Bewegung steckt im Video, daher keine zusätzliche CSS-Animation
@@ -393,15 +421,15 @@
       };
       const speak = () => {
         const v = tts.voice(this.n.sprache);
-        if (!ui.ton || !v) return timed(sc.dauer || sceneSeconds(sc), ui.ton ? 'Untertitel ohne Ton' : 'Ton aus');
-        this.source = 'lokale Systemstimme'; this.updateVoiceInfo();
+        if (!ui.ton || !v) return timed(sc.dauer || sceneSeconds(sc), ui.ton ? 'subs' : 'off');
+        this.source = 'local'; this.updateVoiceInfo();
         const u = new SpeechSynthesisUtterance(sc.sprechtext || sc.text);
         u.voice = v; u.lang = v.lang; u.rate = 1;
         const est = sc.text.length / 15;
         const t0 = performance.now();
         const tick = () => { if (tok !== this.token) return; this.setBar((performance.now() - t0) / (est * 1000)); this.raf = requestAnimationFrame(tick); };
         u.onend = () => { cancelAnimationFrame(this.raf); done(); };
-        u.onerror = () => { if (tok === this.token) timed(sc.dauer || sceneSeconds(sc), 'Untertitel ohne Ton'); };
+        u.onerror = () => { if (tok === this.token) timed(sc.dauer || sceneSeconds(sc), 'subs'); };
         speechSynthesis.speak(u);
         this.raf = requestAnimationFrame(tick);
       };
@@ -417,7 +445,7 @@
         a.addEventListener('timeupdate', () => { if (a.duration) this.setBar(a.currentTime / a.duration); });
         a.addEventListener('ended', () => done(), { once: true });
         a.src = files[k];
-        a.play().then(() => { this.source = 'Audiodatei ' + files[k]; this.updateVoiceInfo(); })
+        a.play().then(() => { this.source = 'file'; this.updateVoiceInfo(); })
           .catch(err => { if (err && err.name === 'NotAllowedError' && this.audio === a) { this.audio = null; speak(); } });
       };
       tryFile(0);
@@ -445,8 +473,8 @@
     }
     syncButtons() {
       const b = this.$('#pp');
-      b.innerHTML = (this.playing ? ICON_SVG.pause : ICON_SVG.play) + `<span>${this.playing ? 'Pause' : 'Abspielen'}</span>`;
-      b.setAttribute('aria-label', this.playing ? 'Pause' : 'Abspielen');
+      b.innerHTML = (this.playing ? ICON_SVG.pause : ICON_SVG.play) + `<span>${this.playing ? T.pause : T.play}</span>`;
+      b.setAttribute('aria-label', this.playing ? T.pause : T.play);
     }
     destroy() { this.stopMedia(); document.removeEventListener('keydown', this.onKey); }
   }
@@ -455,7 +483,7 @@
   function renderQuiz(el, n) {
     const answers = new Array(n.quiz.length).fill(null);
     el.innerHTML = `<h2 id="quiz-h">Quiz</h2>
-      <p class="hint">${n.quiz.length} Fragen. Ihr Ergebnis wird nicht gespeichert.</p>
+      <p class="hint">${T.quizHint(n.quiz.length)}</p>
       <div id="qs"></div><div id="score"></div>`;
     const qs = el.querySelector('#qs');
     qs.innerHTML = n.quiz.map((q, k) => `
@@ -477,14 +505,14 @@
           else if (bj === j) b.classList.add('wrong');
         });
         btn.setAttribute('aria-describedby', `fb-${k}`);
-        box.querySelector('.fb').innerHTML = `<div id="fb-${k}" class="feedback ${answers[k] ? 'ok' : 'no'}"><strong>${answers[k] ? 'Richtig.' : 'Nicht ganz.'}</strong> ${esc(q.erklaerung)}</div>`;
+        box.querySelector('.fb').innerHTML = `<div id="fb-${k}" class="feedback ${answers[k] ? 'ok' : 'no'}"><strong>${answers[k] ? T.right : T.wrong}</strong> ${esc(q.erklaerung)}</div>`;
         if (answers.every(a => a !== null)) showScore();
       }));
     });
 
     function showScore() {
       const r = answers.filter(Boolean).length;
-      el.querySelector('#score').innerHTML = `<div class="score"><div><strong>${r} von ${n.quiz.length} richtig</strong><br>${r === n.quiz.length ? 'Sehr gut, alles verstanden.' : 'Schauen Sie sich die markierten Fragen noch einmal an.'}</div><button class="btn" id="retry">Quiz wiederholen</button></div>`;
+      el.querySelector('#score').innerHTML = `<div class="score"><div><strong>${T.score(r, n.quiz.length)}</strong><br>${r === n.quiz.length ? T.allRight : T.notAll}</div><button class="btn" id="retry">${T.retry}</button></div>`;
       el.querySelector('#retry').addEventListener('click', () => { renderQuiz(el, n); el.scrollIntoView({ behavior: 'smooth' }); });
     }
   }

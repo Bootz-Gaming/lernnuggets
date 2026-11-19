@@ -302,3 +302,11 @@ details.transcript li strong { display: block; }
 
 .tag.lang { border-color: var(--ink); color: var(--ink); font-weight: 600; }
 .card-foot .meta { flex-wrap: nowrap; }
+
+/* Vollbild-Grafiken (fertige Erklärgrafiken mit eigenem Titel) */
+.stage.vollbild .stage-inner { padding: 0; grid-template-rows: minmax(0, 1fr); }
+.stage.vollbild .stage-visual { width: 100%; height: 100%; }
+.stage.vollbild .stage-word { display: none; }
+.stage.vollbild .stage-count { background: rgba(255, 255, 255, .88); padding: 1px 7px; border-radius: 2px; top: auto; bottom: 10px; left: auto; right: 12px; }
+.card-thumb.vollbild .grafik-wrap { width: 100%; height: 100%; }
+.card-thumb.vollbild .scene-grafik { width: 100%; height: 100%; object-fit: cover; object-position: top left; }

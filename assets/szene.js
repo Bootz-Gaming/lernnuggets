@@ -58,14 +58,16 @@
 
   // Bildinhalt: Video > Grafik > Platzhalter-Icon
   function art(sc) { return sc.video ? 'video' : sc.grafik ? 'grafik' : 'icon'; }
+  // Vollbild: fertige Erklärgrafik füllt die ganze Bühne (Stichwort entfällt, Titel steckt in der Grafik)
+  const vollbild = sc => !!(sc && sc.grafik && !sc.video && sc.darstellung === 'vollbild');
 
   function visualHTML(sc, icons, opts) {
     opts = opts || {};
     const urlFn = opts.urlFn || (x => x);
     const anim = opts.animieren === false ? '' : 'anim-' + (sc.animation || 'fade');
-    if (sc.grafik) return `<div class="${anim} grafik-wrap"><img class="scene-grafik" src="${esc(urlFn(sc.grafik))}" alt=""></div>`;
+    if (sc.grafik) return `<div class="${anim} grafik-wrap${vollbild(sc) ? ' vollbild' : ''}"><img class="scene-grafik" src="${esc(urlFn(sc.grafik))}" alt=""></div>`;
     return `<div class="${anim}">${icons[sc.icon] || icons.report || ''}</div>`;
   }
 
-  window.LERN_SZENE = { ANIMATIONEN, STANDARD_BG, hintergrund, ton, bgStyle, art, visualHTML, normHex, esc };
+  window.LERN_SZENE = { ANIMATIONEN, STANDARD_BG, hintergrund, ton, bgStyle, art, vollbild, visualHTML, normHex, esc };
 })();
