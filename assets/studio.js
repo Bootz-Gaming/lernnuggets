@@ -331,6 +331,10 @@
   function cleanData(d) {
     const out = clone(d);
     const mb = cleanBg(out.meta.hintergrund); if (mb) out.meta.hintergrund = mb; else delete out.meta.hintergrund;
+    if (out.meta.aussprache) {
+      out.meta.aussprache = out.meta.aussprache.filter(e => String(e.wort || '').trim()).map(e => Object.assign({ wort: e.wort.trim(), art: e.art || 'en' }, e.ersatz ? { ersatz: e.ersatz.trim() } : {}));
+      if (!out.meta.aussprache.length) delete out.meta.aussprache;
+    }
     out.nuggets.forEach(n => {
       n.schlagwoerter = (n.schlagwoerter || []).map(s => s.trim()).filter(Boolean);
       if (!n.stimme) delete n.stimme;
@@ -657,6 +661,7 @@
               <label class="field"><span>Stichwort auf der Bühne</span><input data-sf="stichwort" value="${esc(sc.stichwort)}"></label>
               <label class="field"><span>Sprechertext / Untertitel</span><textarea data-sf="text" rows="3">${esc(sc.text)}</textarea></label>
               <label class="field"><span>Aussprache <em class="hint">optional, z. B. „eins, eins, zwei“ statt „112“</em></span><input data-sf="sprechtext" value="${esc(sc.sprechtext)}"></label>
+              ${SERVER ? '<div class="anhoeren-row"><button type="button" class="ctrl" data-anhoeren>Szene anhören</button><span class="hint-line">mit Stimme und Aussprache-Liste, so wie sie vertont wird</span></div>' : ''}
               <div class="field"><span>Stimme dieser Szene</span>${voiceSelect(sc.stimme, 'wie Lernnugget', 's' + k, n.sprache)}</div>
               <div class="field"><span>Hintergrund dieser Szene</span>${bgEditor(sc.hintergrund, 'wie Lernnugget', 's' + k)}</div>
             </div>
@@ -684,6 +689,89 @@
     bindEditor(n);
   }
 
+  // ---------- Aussprache (Denglisch) und Anhören ----------
+  const STD_AUSSPRACHE = ((window.LERN_AUSSPRACHE || {}).begriffe) || [];
+  const szenenStimme = (n, sc) => sc.stimme || n.stimme || (n.sprache === 'en' ? data.meta.stimme_en || KAT_STANDARD.en : data.meta.stimme || KAT_STANDARD.de);
+  let probeAudio = null;
+  async function anhoeren(btn, text, stimme, sprache) {
+    if (probeAudio) { probeAudio.pause(); const war = probeAudio._btn; probeAudio = null; if (war) war.textContent = war.dataset.label; if (war === btn) return; }
+    if (!text) { alert('Kein Text zum Anhören.'); return; }
+    btn.dataset.label = btn.dataset.label || btn.textContent;
+    btn.textContent = 'Wird erzeugt …'; btn.disabled = true;
+    try {
+      const r = await fetch('/api/probe', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, stimme, sprache: sprache === 'en' ? 'en' : 'de', aussprache: data.meta.aussprache || [], aussprache_modus: data.meta.aussprache_modus || 'englisch' }) });
+      if (!r.ok) { let m = `Fehler ${r.status}`; try { m = (await r.json()).fehler || m; } catch (e) { /* kein JSON */ } throw new Error(m); }
+      const url = URL.createObjectURL(await r.blob());
+      const a = new Audio(url); a._btn = btn; probeAudio = a;
+      btn.textContent = 'Stopp';
+      a.addEventListener('ended', () => { btn.textContent = btn.dataset.label; URL.revokeObjectURL(url); if (probeAudio === a) probeAudio = null; });
+      await a.play();
+    } catch (e) { btn.textContent = btn.dataset.label; alert(e.message); }
+    btn.disabled = false;
+  }
+  const ARTEN = [['en', 'Englisch aussprechen'], ['ersatz', 'Immer Umschreibung lesen'], ['aus', 'Nicht ändern']];
+  function ausspracheHTML() {
+    const m = data.meta, liste = m.aussprache || [];
+    const eigene = new Set(liste.map(e => String(e.wort || '').toLowerCase()));
+    return `<section class="ed-card" id="aussprache">
+      <h2>Aussprache englischer Begriffe</h2>
+      <p class="small">Englische Wörter in deutschen Lernnuggets, etwa Phishing, Meeting oder Update, werden automatisch richtig ausgesprochen:
+        Florian und Seraphina wechseln dafür ins Englische, alle anderen Stimmen lesen eine Umschreibung in deutscher Schreibweise.
+        ${STD_AUSSPRACHE.length} Begriffe sind schon hinterlegt; hier ergänzen oder ändern Sie Einträge. Plural mit -s wird mit erkannt.</p>
+      <label class="field"><span>Florian und Seraphina</span><select data-am>
+        <option value="englisch" ${(m.aussprache_modus || 'englisch') === 'englisch' ? 'selected' : ''}>Englische Begriffe englisch aussprechen</option>
+        <option value="umschreibung" ${m.aussprache_modus === 'umschreibung' ? 'selected' : ''}>Umschreibung lesen, wie die anderen Stimmen</option></select></label>
+      ${SERVER ? `<div class="probe-box">
+        <label class="field"><span>Testsatz</span><textarea data-probe-text rows="2">Im Teams-Meeting zeigen wir, wie Sie Phishing-Mails erkennen und das Update auf dem Smartphone installieren.</textarea></label>
+        <div class="voice-row"><select data-probe-stimme aria-label="Stimme für den Testsatz">${KATALOG.stimmen.filter(v => spracheVon(v) === 'de').map(v => `<option value="${esc(v.id)}" ${v.id === (m.stimme || KAT_STANDARD.de) ? 'selected' : ''}>${esc(stimmLabel(v))}</option>`).join('')}</select>
+          <button type="button" class="btn" data-probe-play>Anhören</button></div>
+        <p class="hint-line">Erzeugt den Satz sofort auf dem Server, mit der Liste unten, auch wenn sie noch nicht veröffentlicht ist.</p>
+      </div>` : ''}
+      <table class="aus-liste"><thead><tr><th>Begriff</th><th>Aussprache</th><th>Umschreibung</th><th><span class="sr">Aktionen</span></th></tr></thead><tbody>
+      ${liste.map((e, i) => `<tr data-a="${i}">
+        <td><input data-af="wort" value="${esc(e.wort)}" aria-label="Begriff"></td>
+        <td><select data-af="art" aria-label="Aussprache">${ARTEN.map(([v, t]) => `<option value="${v}" ${(e.art || 'en') === v ? 'selected' : ''}>${t}</option>`).join('')}</select></td>
+        <td><input data-af="ersatz" value="${esc(e.ersatz)}" placeholder="z. B. Fisching" aria-label="Umschreibung" ${e.art === 'aus' ? 'disabled' : ''}></td>
+        <td class="aus-akt">${SERVER ? '<button type="button" class="ctrl" data-aplay>Anhören</button>' : ''}<button type="button" class="ctrl icon-btn" data-adel title="Entfernen" aria-label="Eintrag entfernen">${ICO.x}</button></td></tr>`).join('')
+        || '<tr><td colspan="4" class="hint-line">Noch keine eigenen Einträge.</td></tr>'}
+      </tbody></table>
+      <div class="add-row"><button type="button" class="btn ghost" data-aadd>Begriff hinzufügen</button></div>
+      <details class="std-aus"><summary>Standardliste anzeigen (${STD_AUSSPRACHE.length} Begriffe)</summary>
+        <ul>${STD_AUSSPRACHE.map(e => `<li><span><strong>${esc(e.wort)}</strong> → ${esc(e.ersatz)}</span>${eigene.has(e.wort.toLowerCase()) ? '<em>angepasst</em>' : `<button type="button" class="ctrl" data-aanpassen="${esc(e.wort)}">Anpassen</button>`}</li>`).join('')}</ul>
+      </details>
+    </section>`;
+  }
+  function bindAussprache() {
+    const sec = editor.querySelector('#aussprache'); if (!sec) return;
+    const m = data.meta;
+    const liste = () => (m.aussprache = m.aussprache || []);
+    sec.querySelector('[data-am]').addEventListener('change', e => { m.aussprache_modus = e.target.value; save(); });
+    sec.querySelectorAll('tr[data-a]').forEach(tr => {
+      const e = liste()[+tr.dataset.a];
+      tr.querySelectorAll('[data-af]').forEach(el => el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', () => {
+        e[el.dataset.af] = el.value.trim();
+        if (el.dataset.af === 'art') tr.querySelector('[data-af="ersatz"]').disabled = el.value === 'aus';
+        save();
+      }));
+      tr.querySelector('[data-adel]').addEventListener('click', () => { liste().splice(+tr.dataset.a, 1); if (!m.aussprache.length) delete m.aussprache; save(); renderSettings(); });
+      const pl = tr.querySelector('[data-aplay]');
+      if (pl) pl.addEventListener('click', () => anhoeren(pl, e.wort, sec.querySelector('[data-probe-stimme]').value, 'de'));
+    });
+    sec.querySelector('[data-aadd]').addEventListener('click', () => {
+      liste().push({ wort: '', art: 'en', ersatz: '' }); save(); renderSettings();
+      const ins = editor.querySelectorAll('#aussprache [data-af="wort"]'); const last = ins[ins.length - 1];
+      if (last) { last.scrollIntoView({ block: 'center' }); last.focus(); }
+    });
+    sec.querySelectorAll('[data-aanpassen]').forEach(b => b.addEventListener('click', () => {
+      const std = STD_AUSSPRACHE.find(x => x.wort === b.dataset.aanpassen);
+      liste().push({ wort: std.wort, art: 'en', ersatz: std.ersatz }); save(); renderSettings();
+      editor.querySelector('#aussprache').scrollIntoView({ block: 'start' });
+    }));
+    const play = sec.querySelector('[data-probe-play]');
+    if (play) play.addEventListener('click', () => anhoeren(play, sec.querySelector('[data-probe-text]').value.trim(), sec.querySelector('[data-probe-stimme]').value, 'de'));
+  }
+
   function renderSettings() {
     const m = data.meta;
     editor.innerHTML = `
@@ -700,7 +788,8 @@
         </div>
         <p class="hint-line">Ein Hintergrund an der Szene ersetzt den des Lernnuggets, und dieser ersetzt den Standard.</p>
       </section>
-      <section class="ed-card"><h2>Vorschau</h2><div class="settings-prev">${stagePreview(null, { icon: 'report', animation: 'pop', stichwort: 'Beispiel-Stichwort' })}</div></section>`;
+      <section class="ed-card"><h2>Vorschau</h2><div class="settings-prev">${stagePreview(null, { icon: 'report', animation: 'pop', stichwort: 'Beispiel-Stichwort' })}</div></section>
+      ${ausspracheHTML()}`;
     editor.querySelectorAll('[data-f]').forEach(el => el.addEventListener('input', () => {
       m[el.dataset.f.slice(2)] = el.value; save();
     }));
@@ -710,6 +799,7 @@
     ah.addEventListener('input', () => { const v = SZ.normHex(ah.value); ah.classList.toggle('invalid', !v); if (v) { ap.value = v; setAkzent(v); } });
     bindVoice(editor.querySelector('[data-voice="m"]'), () => m.stimme, v => { m.stimme = v || KAT_STANDARD.de; }, () => KAT_STANDARD.de);
     bindVoice(editor.querySelector('[data-voice="me"]'), () => m.stimme_en, v => { m.stimme_en = v || KAT_STANDARD.en; }, () => KAT_STANDARD.en);
+    bindAussprache();
     bindBg(editor.querySelector('[data-bg="m"]'), () => m.hintergrund, v => { m.hintergrund = v || { farbe: '#ffffff' }; save(); },
       full => { if (full) renderEditor(); else editor.querySelector('.settings-prev').innerHTML = stagePreview(null, { icon: 'report', animation: 'pop', stichwort: 'Beispiel-Stichwort' }); wireStages(); });
     wireStages();
@@ -729,6 +819,10 @@
 
   function bindEditor(n) {
     wireStages();
+    editor.querySelectorAll('[data-anhoeren]').forEach(btn => btn.addEventListener('click', () => {
+      const sc = n.szenen[+btn.closest('[data-k]').dataset.k];
+      anhoeren(btn, (sc.sprechtext || sc.text || '').trim(), szenenStimme(n, sc), n.sprache);
+    }));
     editor.querySelectorAll('[data-f]').forEach(el => el.addEventListener('input', () => {
       const f = el.dataset.f;
       if (f === 'oeffentlich') {

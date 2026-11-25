@@ -314,6 +314,8 @@ const besitzerInfo = d => Object.fromEntries([...new Set(d.nuggets.map(n => n.be
   const k = kontoVon(b); return [b, { name: k ? k.name : b, freigabe: !k || k.rolle === 'anwender' }];
 }));
 
+const proben = new Map();   // konto → Zeitpunkte der Proben (Begrenzung)
+
 // ---------- Vertonung und Videobau (ein Auftrag zur Zeit) ----------
 const auftrag = { laeuft: false, nochmal: false, start: null, ende: null, ok: null, log: [], alles: false, von: null };
 function logAuftrag(z) {
@@ -536,7 +538,7 @@ async function api(req, res, url, s) {
   }
 
   // --- Studio: Entwurf, Medien, Veröffentlichen ---
-  if (p.startsWith('/api/entwurf') || p.startsWith('/api/medien') || p.startsWith('/api/auftrag') || p === '/api/veroeffentlichen') {
+  if (p.startsWith('/api/entwurf') || p.startsWith('/api/medien') || p.startsWith('/api/auftrag') || p === '/api/veroeffentlichen' || p === '/api/probe') {
     if (!darfStudio(k)) throw fehler(403, 'Kein Zugang zum Studio.');
   }
   if (p === '/api/entwurf' && m === 'GET') {
@@ -620,6 +622,34 @@ async function api(req, res, url, s) {
     starteAuftrag(k.benutzer, false);
     return json(res, 200, { ok: true, liveRev, live: d, zurueckgehalten: zurueck,
       entwurf: neuerEntwurf ? { data: neuerEntwurf.data, version: neuerEntwurf.version } : { data: d, version: 0 }, besitzer: besitzerInfo(rest) });
+  }
+  // Probe: einzelnen Satz sofort vertonen (Aussprache testen, Szene anhören) – begrenzt, um Azure-Kontingent zu schonen
+  if (p === '/api/probe' && m === 'POST') {
+    const b = await jsonBody(req, 60000);
+    const text = String(b.text || '').trim().slice(0, 600);
+    if (!text) throw fehler(400, 'Kein Text zum Anhören.');
+    const t = Date.now(), l = (proben.get(k.id) || []).filter(x => t - x < 3600e3);
+    if (l.length >= 80) throw fehler(429, 'Zu viele Proben in der letzten Stunde. Bitte später erneut versuchen.');
+    l.push(t); proben.set(k.id, l);
+    const dir = D('probe'); fs.mkdirSync(dir, { recursive: true });
+    const id = zufall(9), q = path.join(dir, id + '.json'), out = path.join(dir, id + '.mp3');
+    fs.writeFileSync(q, JSON.stringify({ text, stimme: b.stimme || null, sprache: b.sprache === 'en' ? 'en' : 'de',
+      aussprache: Array.isArray(b.aussprache) ? b.aussprache.slice(0, 500) : undefined, aussprache_modus: b.aussprache_modus || undefined }));
+    const args = [path.join(APP, 'tools/tts.py'), '--engine', CFG.engine, '--cache', D('piper-stimmen'), '--probe', q, '--ausgabe', out];
+    if (CFG.piper) args.push('--piper', CFG.piper);
+    const r = await new Promise(resolve => {
+      let log = '';
+      const pr = spawn(CFG.python, args, { cwd: APP, env: Object.assign({}, env, { LERN_DATEN: CFG.daten }) });
+      const timer = setTimeout(() => pr.kill('SIGKILL'), 45000);
+      pr.stdout.on('data', d => { log += d; }); pr.stderr.on('data', d => { log += d; });
+      pr.on('error', e => { clearTimeout(timer); resolve({ code: 1, log: e.message }); });
+      pr.on('close', code => { clearTimeout(timer); resolve({ code, log }); });
+    });
+    let mp3 = null;
+    try { if (r.code === 0) mp3 = fs.readFileSync(out); } catch (e) { /* fehlt */ }
+    for (const f of [q, out]) { try { fs.unlinkSync(f); } catch (e) { /* weg */ } }
+    if (!mp3) { console.error('Probe fehlgeschlagen:', r.log.slice(-500)); throw fehler(502, /AZURE_SPEECH_KEY/.test(r.log) ? 'Azure-Schlüssel fehlt auf dem Server.' : 'Die Probe konnte nicht erzeugt werden.'); }
+    return senden(res, 200, mp3, 'audio/mpeg');
   }
   if (p === '/api/auftrag' && m === 'GET') return json(res, 200, Object.assign({}, auftrag, { log: auftrag.log.slice(-80), engine: CFG.engine }));
   if (p === '/api/auftrag' && m === 'POST') {
@@ -784,7 +814,7 @@ http.createServer((req, res) => {
     const st = e.status || 500;
     if (st >= 500) console.error(e);
     if (res.headersSent) return res.end();
-    json(res, st, { fehler: st >= 500 ? 'Interner Fehler.' : e.message });
+    json(res, st, { fehler: st === 500 ? 'Interner Fehler.' : e.message });
   });
 }).listen(CFG.port, CFG.host, () => {
   console.log(`Lernnuggets läuft auf http://${CFG.host}:${CFG.port} (Daten: ${CFG.daten}, Sprachausgabe: ${CFG.engine})`);

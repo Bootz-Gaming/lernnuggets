@@ -50,6 +50,12 @@ Sprachausgabe: **Azure AI Speech** (Schlüssel in `/etc/lernnuggets.env`), alter
 | Ryan → Azure: Guy | männlich, US-Englisch |
 | Alan → Azure: Ryan (GB) | männlich, britisches Englisch |
 
+**Denglisch:** Englische Begriffe in deutschen Texten (Phishing, Meeting, Update …) stehen in einer Aussprache-Liste
+(Standard: `assets/aussprache.js`, eigene Einträge im Studio unter Einstellungen → „Aussprache englischer Begriffe“).
+Florian und Seraphina sprechen diese Wörter englisch aus (Sprachwechsel im Satz), alle anderen Stimmen lesen eine
+Umschreibung in deutscher Schreibweise (z. B. „Fisching“). Mit „Anhören“ lässt sich jeder Satz sofort auf dem Server testen,
+auch einzelne Szenen.
+
 Stimme und Sprache (Deutsch/Englisch) werden pro Lernnugget gewählt, die Stimme zusätzlich pro Szene. Im Studio gibt es zu
 jeder Stimme eine Hörprobe. Für die Aussprache kann pro Szene ein abweichender Sprechtext gesetzt werden
 (z. B. „eins, eins, zwei“ statt „112“).
