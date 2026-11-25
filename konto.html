@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; font-src 'self'">
+  <title>Mein Konto – Lernnuggets</title>
+  <link rel="stylesheet" href="assets/style.css?v=__BUILD__">
+</head>
+<body class="seite-konto" data-seite="konto">
+  <header class="topbar">
+    <a href="/" class="brand" aria-label="Zur Übersicht">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-text"><strong>Lernnuggets</strong><small>Interner Bereich</small></span>
+    </a>
+    <nav class="topnav" aria-label="Hauptnavigation"></nav>
+  </header>
+
+  <main id="main" class="konto-main" tabindex="-1">
+    <section class="band"><h1>Mein Konto</h1><p id="untertitel"></p></section>
+    <div class="konto-grid">
+      <section class="form-panel">
+        <h2>Angaben</h2>
+        <dl class="kv" id="angaben"></dl>
+        <p class="form-note">Name oder Rolle ändern Admin oder Support.</p>
+      </section>
+      <form class="form-panel" id="f-pw" novalidate>
+        <h2>Passwort ändern</h2>
+        <label class="field"><span>Bisheriges Passwort</span><input name="alt" type="password" autocomplete="current-password" required></label>
+        <label class="field"><span>Neues Passwort <em class="hint">mindestens 10 Zeichen</em></span><input name="neu" type="password" autocomplete="new-password" minlength="10" required></label>
+        <label class="field"><span>Neues Passwort wiederholen</span><input name="neu2" type="password" autocomplete="new-password" required></label>
+        <p class="form-msg" role="alert" aria-live="assertive"></p>
+        <div class="form-actions"><button class="btn" type="submit">Passwort ändern</button></div>
+        <p class="form-note">Andere Geräte, auf denen Sie angemeldet sind, werden danach abgemeldet.</p>
+      </form>
+    </div>
+  </main>
+
+  <script src="assets/konto.js?v=__BUILD__"></script>
+</body>
+</html>

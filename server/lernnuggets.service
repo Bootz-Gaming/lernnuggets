@@ -1,0 +1,30 @@
+[Unit]
+Description=Lernnuggets (Lernplattform mit Studio und Konten)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lernnuggets
+Group=lernnuggets
+EnvironmentFile=/etc/lernnuggets.env
+WorkingDirectory=/opt/lernnuggets/app
+ExecStart=__NODE__ /opt/lernnuggets/app/server/server.js
+Restart=on-failure
+RestartSec=5
+UMask=0027
+
+# Abschottung: Programm nur lesbar, schreiben nur im Datenordner
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/lernnuggets
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

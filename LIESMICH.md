@@ -1,4 +1,4 @@
-# Lernnuggets – Prototyp 0.5
+# Lernnuggets – Prototyp 0.7
 
 Webbasierter Lern-Prototyp (Handlungsplan Nr. 13–16) im Stil von Erklärvideos:
 eigene After-Effects-Animationen, Sprecher, Untertitel, Quiz. Läuft komplett im Browser über
@@ -8,6 +8,8 @@ eigene After-Effects-Animationen, Sprecher, Untertitel, Quiz. Läuft komplett im
 - **Studio:** `studio.html` – Inhalte bearbeiten, Grafiken und Hintergründe zuordnen, Vorschau, Veröffentlichen
 - **Sprecher:** werden automatisch von GitHub erzeugt (Test: Piper, kostenlos · später: Azure AI Speech)
 - **MP4-Downloads:** GitHub baut pro Lernnugget ein fertiges Video mit Sprecher und zuschaltbaren Untertiteln
+- **Eigener Server (neu):** dieselbe Plattform mit Konten (Admin, Support, Anwender), gemeinsamem Studio-Entwurf,
+  Upload und Vertonung direkt auf dem Server, einzeln öffentlich teilbaren Lernnuggets → [`server/LIESMICH-SERVER.md`](server/LIESMICH-SERVER.md)
 
 ---
 
@@ -76,6 +78,7 @@ und legt sie als `audio/<id>-<szene>.mp3` ab. Unveränderte Szenen werden nicht 
 
 | Stimme | Charakter |
 |---|---|
+| Florian, Seraphina | männlich bzw. weiblich, sehr natürlich (Azure „Multilingual“) – **nur mit Azure**; mit Piper spricht stattdessen die Standardstimme |
 | Thorsten (Standard) | männlich, klar, beste Qualität |
 | Thorsten – ruhig / freundlich / überrascht | männlich, mit Emotion |
 | Cori (Standard Englisch) | weiblich, britisches Englisch, beste Qualität, gemeinfrei |
@@ -96,7 +99,8 @@ geändertem Text werden neu vertont.
 2. Im Repository: **Settings → Secrets and variables → Actions**
    - Reiter *Secrets*: `AZURE_SPEECH_KEY` = Schlüssel
    - Reiter *Variables*: `TTS_ENGINE` = `azure` (optional `AZURE_SPEECH_REGION`)
-   - Jede Katalog-Stimme hat eine passende Azure-Stimme (Feld `azure` in `assets/stimmen.js`, z. B. männlich → ConradNeural, weiblich → KatjaNeural)
+   - Jede Katalog-Stimme hat eine passende Azure-Stimme (Feld `azure` in `assets/stimmen.js`, z. B. Thorsten → Conrad, Ryan → Guy, Cori → Sonia).
+     Das Studio zeigt unter Azure diese echten Namen an.
 3. **Actions → Veröffentlichen → Run workflow**, Engine „azure“, Haken bei „Alle Szenen neu vertonen“.
 
 Für die Aussprache kann im Studio pro Szene ein abweichender Sprechtext gesetzt werden (z. B. „eins, eins, zwei“).
@@ -123,3 +127,5 @@ Ohne Audiodatei nutzt der Player eine lokal installierte Windows-Stimme als Vors
 | `tools/video.py` | baut die MP4-Downloads (wird vom Workflow aufgerufen) |
 | `assets/platzhalter/` | Platzhalter-Icons als SVG (für den Videobau) |
 | `.github/workflows/veroeffentlichen.yml` | Sprecher erzeugen + Seite veröffentlichen |
+| `server/` | eigener Server: `server.js` (Konten, Studio-API, Auslieferung), `install.sh`, systemd-Dienst, Caddy-Block |
+| `anmelden.html`, `konto.html`, `verwaltung.html` | Anmeldung, eigenes Konto, Kontoverwaltung (nur auf dem Server) |

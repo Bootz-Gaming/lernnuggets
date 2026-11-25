@@ -108,7 +108,7 @@ jobs:
         run: python3 tools/video.py
 
       - name: Cache-Kennung setzen (Browser laden nach jeder Veröffentlichung alle Dateien neu)
-        run: sed -i "s/__BUILD__/${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}/g" index.html studio.html
+        run: sed -i "s/__BUILD__/${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}/g" index.html studio.html anmelden.html konto.html verwaltung.html
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

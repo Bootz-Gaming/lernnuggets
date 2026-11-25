@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- Einzige externe Verbindung: GitHub-API (nur lesend), um die Dateien im Ordner media/ aufzulisten. -->
+  <!-- connect-src: eigener Server (Speichern, Hochladen) bzw. GitHub-API (nur lesend: Dateien in media/ auflisten). -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://api.github.com; font-src 'self'">
   <title>Studio – Lernnuggets</title>
   <link rel="stylesheet" href="assets/style.css?v=__BUILD__">
@@ -13,23 +13,30 @@
   <header class="topbar">
     <a href="index.html" class="brand" aria-label="Zur Lernplattform">
       <span class="brand-mark" aria-hidden="true"></span>
-      <span class="brand-text"><strong>Studio</strong><small>Inhalte, Grafiken, Stimmen und Hintergründe pflegen</small></span>
+      <span class="brand-text"><strong>Lernnuggets</strong><small>Studio</small></span>
     </a>
     <nav class="topnav" aria-label="Hauptnavigation">
       <a href="index.html">Übersicht</a>
       <a href="studio.html" aria-current="page">Studio</a>
     </nav>
-    <div class="top-actions">
-      <span class="save-state" id="save-state" aria-live="polite"></span>
-      <button class="btn ghost" id="btn-preview">Vorschau öffnen</button>
-      <button class="btn" id="btn-export">Veröffentlichen …</button>
-    </div>
   </header>
+
+  <div class="studio-bar">
+    <div class="bar-title">
+      <span id="bar-kontext">Studio</span>
+      <strong id="bar-name">Inhalte</strong>
+    </div>
+    <span class="save-state" id="save-state" aria-live="polite"></span>
+    <div class="bar-actions">
+      <button class="btn on-dark ghost" id="btn-preview">Vorschau</button>
+      <button class="btn on-dark" id="btn-export">Veröffentlichen …</button>
+    </div>
+  </div>
 
   <div class="studio-layout">
     <nav class="studio-nav" aria-label="Lernnuggets">
-      <div class="nav-head"><h2>Inhalte</h2><button class="ctrl" id="btn-new">Neues Lernnugget</button></div>
-      <button class="settings-btn" id="btn-settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>Einstellungen</button>
+      <button class="nav-item settings-btn" id="btn-settings">Einstellungen der Plattform</button>
+      <div class="nav-head"><h2>Lernnuggets</h2><button class="ctrl" id="btn-new" title="Neues Lernnugget anlegen">Neu anlegen</button></div>
       <ul id="nugget-list"></ul>
       <div class="nav-foot">
         <button class="linkbtn" id="btn-reset">Entwurf verwerfen</button>
@@ -40,9 +47,11 @@
 
     <aside class="media-lib" aria-labelledby="lib-h">
       <h2 id="lib-h">Medien</h2>
-      <p class="small">Grafiken (SVG, PNG), Hintergrundbilder (JPG, PNG) und optional Videos (.mov, .mp4) hier wählen – sie werden nur in diesem Browser geladen, nichts wird hochgeladen.</p>
-      <label class="btn ghost file-btn">Dateien wählen …<input type="file" id="file-in" accept=".svg,.png,.jpg,.jpeg,.webp,.mov,.mp4,.m4v,.webm,image/*,video/*" multiple hidden></label>
-      <div class="drop" id="drop">oder hierher ziehen</div>
+      <p class="small" id="lib-text">Grafiken (SVG, PNG), Hintergrundbilder (JPG, PNG) und optional Videos (.mov, .mp4). Sie werden nur in diesem Browser geladen, nichts wird hochgeladen.</p>
+      <div class="drop" id="drop">
+        <label class="btn ghost file-btn">Dateien auswählen<input type="file" id="file-in" accept=".svg,.png,.jpg,.jpeg,.webp,.mov,.mp4,.m4v,.webm,image/*,video/*" multiple hidden></label>
+        <span>oder hierher ziehen</span>
+      </div>
       <p class="small" id="repo-info"></p>
       <ul id="lib-list" class="lib-list"></ul>
     </aside>
@@ -52,7 +61,7 @@
     <form method="dialog" class="dlg">
       <h2 id="dlg-h">Veröffentlichen</h2>
       <div id="dlg-body"></div>
-      <div class="dlg-actions"><button class="btn ghost" value="close">Schließen</button><button class="btn ghost" id="btn-json" type="button">Als .json herunterladen</button><button class="btn" id="btn-copy" type="button">Inhalte kopieren</button></div>
+      <div class="dlg-actions" id="dlg-actions"><button class="btn ghost" value="close">Schließen</button><button class="btn ghost" id="btn-json" type="button">Als .json herunterladen</button><button class="btn" id="btn-copy" type="button">Inhalte kopieren</button></div>
     </form>
   </dialog>
 

@@ -27,7 +27,15 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "downloads"
+# Datenordner (Inhalte, audio/, media/, downloads/): auf dem Server getrennt vom Programm (LERN_DATEN)
+DATEN = Path(os.environ.get("LERN_DATEN") or ROOT)
+OUT = DATEN / "downloads"
+
+
+def datei(rel):
+    """Pfad aus den Inhalten (z. B. media/x.png) – erst im Datenordner, dann im Programmordner suchen."""
+    p = DATEN / rel
+    return p if p.exists() or DATEN == ROOT else ROOT / rel
 W, H, FPS = 1920, 1080, 30
 VERSION = "video-6"           # erhöhen, wenn sich das Rendering ändert → alles neu
 INK, WHITE = (31, 36, 48), (255, 255, 255)
@@ -122,8 +130,8 @@ def make_background(bg, cache):
     key = json.dumps(bg, sort_keys=True)
     if key in cache: return cache[key]
     canvas = Image.new("RGB", (W, H), hexrgb(bg.get("farbe")))
-    if bg.get("bild") and (ROOT / bg["bild"]).exists():
-        im = load_image(ROOT / bg["bild"], (W, H), cover=True).convert("RGBA")
+    if bg.get("bild") and datei(bg["bild"]).exists():
+        im = load_image(datei(bg["bild"]), (W, H), cover=True).convert("RGBA")
         canvas.paste(im, ((W - im.width) // 2, (H - im.height) // 2), im)
     elif bg.get("bild"):
         print(f"    Hinweis: Hintergrundbild {bg['bild']} fehlt – nutze Farbe")
@@ -232,7 +240,7 @@ def build_scene(meta, n, k, sc, audio, tmp, bgcache):
     a_dur = probe_dur(audio) if audio else 0.0
     base = (a_dur + 0.4) if audio else max(3.5, len(sc.get("text", "")) / 14 + 1.2)
     out = tmp / f"s{k:03d}.mp4"
-    video = ROOT / sc["video"] if sc.get("video") else None
+    video = datei(sc["video"]) if sc.get("video") else None
 
     if video and video.exists():
         dur = max(base, float(sc.get("mindestdauer") or 0), probe_dur(video))
@@ -251,7 +259,7 @@ def build_scene(meta, n, k, sc, audio, tmp, bgcache):
 
     if video:
         print(f"    Hinweis: Video {sc['video']} fehlt – nutze Grafik/Platzhalter")
-    gpath = ROOT / sc["grafik"] if sc.get("grafik") else None
+    gpath = datei(sc["grafik"]) if sc.get("grafik") else None
     vollbild = bool(gpath and gpath.exists() and sc.get("darstellung") == "vollbild")
     if not (gpath and gpath.exists()):
         if gpath: print(f"    Hinweis: Grafik {sc['grafik']} fehlt – nutze Platzhalter")
@@ -341,10 +349,10 @@ def nugget_hash(meta, n, audio_index):
         if not sc.get("video") and not sc.get("grafik"):
             files.append(f"assets/platzhalter/{sc.get('icon') or 'report'}.svg")
         for f in files:
-            p = ROOT / f if f else None
+            p = datei(f) if f else None
             if p and p.exists(): h.update(hashlib.sha1(p.read_bytes()).digest())
     for bg in (n.get("hintergrund"), meta.get("hintergrund")):
-        p = ROOT / bg["bild"] if isinstance(bg, dict) and bg.get("bild") else None
+        p = datei(bg["bild"]) if isinstance(bg, dict) and bg.get("bild") else None
         if p and p.exists(): h.update(hashlib.sha1(p.read_bytes()).digest())
     return h.hexdigest()[:16]
 
@@ -352,7 +360,7 @@ def nugget_hash(meta, n, audio_index):
 def build_nugget(meta, n, tmp):
     bgcache, parts, cues, t = {}, [], [], 0.0
     for k, sc in enumerate(n["szenen"], 1):
-        audio = ROOT / "audio" / f"{n['id']}-{k}.mp3"
+        audio = DATEN / "audio" / f"{n['id']}-{k}.mp3"
         clip, dur, a_dur = build_scene(meta, n, k, sc, audio if audio.exists() else None, tmp, bgcache)
         parts.append(clip)
         cues += cues_for(sc.get("text", ""), t + 0.1, (a_dur if a_dur else dur - 0.4) - 0.1)
@@ -378,13 +386,13 @@ def main():
     for tool in ("ffmpeg", "ffprobe", "rsvg-convert"):
         if not shutil.which(tool): sys.exit(f"{tool} fehlt.")
     FONT_WORD = font(64)
-    raw = (ROOT / "data" / "inhalte.js").read_text(encoding="utf-8")
+    raw = (DATEN / "data" / "inhalte.js").read_text(encoding="utf-8")
     data = json.loads(raw.split("=", 1)[1].strip().rstrip(";"))
     meta = data.get("meta", {})
     OUT.mkdir(exist_ok=True)
     idx_path = OUT / "_index.json"
     index = json.loads(idx_path.read_text()) if idx_path.exists() else {}
-    a_idx_path = ROOT / "audio" / "_index.json"
+    a_idx_path = DATEN / "audio" / "_index.json"
     audio_index = json.loads(a_idx_path.read_text()) if a_idx_path.exists() else {}
     only = sys.argv[1:]
 

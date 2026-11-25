@@ -1,7 +1,10 @@
 /*
  * Studio – Redaktionsoberfläche für die Lernnuggets.
- * Alles läuft im Browser. Eigene Dateien werden nur lokal geladen (Blob-URL), nichts wird hochgeladen.
- * Ergebnis ist eine neue data/inhalte.js, die über die GitHub-Weboberfläche hochgeladen wird.
+ * Zwei Betriebsarten:
+ *  - GitHub Pages: alles läuft im Browser, eigene Dateien nur lokal (Blob-URL); Ergebnis ist eine neue
+ *    data/inhalte.js, die über die GitHub-Weboberfläche hochgeladen wird.
+ *  - Eigener Server (window.LERN_KONTO vorhanden): gemeinsamer Entwurf auf dem Server, Medien werden
+ *    hochgeladen, Admins veröffentlichen direkt; Vertonung und Videos entstehen auf dem Server.
  */
 (function () {
   'use strict';
@@ -23,6 +26,10 @@
   };
   const KATALOG = window.LERN_STIMMEN || { standard: 'thorsten', stimmen: [] };
   const STIMMINFO = (window.LERN_STIMMEN_INFO || {}).stimmen || {};
+  const ENGINE = (window.LERN_STIMMEN_INFO || {}).engine || 'piper';
+  const KONTO = window.LERN_KONTO || null;
+  const SERVER = !!KONTO;
+  const ADMIN = SERVER && KONTO.rolle === 'admin';
 
   // ---------- Stimmen ----------
   // Auswahl mit Hörprobe; erben = Bezeichnung der geerbten Ebene oder null (Plattform-Standard)
@@ -30,16 +37,31 @@
   const KAT_STANDARD = { de: KATALOG.standard || 'thorsten', en: KATALOG.standard_en || 'cori' };
   function voiceSelect(sel, erben, scope, lang) {
     lang = lang || 'de';
-    const opts = KATALOG.stimmen.filter(v => spracheVon(v) === lang).map(v => `<option value="${esc(v.id)}" ${v.id === sel ? 'selected' : ''}>${esc(v.name)} – ${esc(v.beschreibung)}</option>`).join('');
+    const opts = KATALOG.stimmen.filter(v => spracheVon(v) === lang).map(v => `<option value="${esc(v.id)}" ${v.id === sel ? 'selected' : ''}>${esc(stimmLabel(v))}</option>`).join('');
     const unknown = sel && !KATALOG.stimmen.some(v => v.id === sel && spracheVon(v) === lang) ? `<option value="${esc(sel)}" selected>${esc(sel)} (unbekannt)</option>` : '';
     return `<div class="voice-row" data-voice="${scope}">
       <select data-vf="sel" aria-label="Stimme">${erben ? `<option value="" ${!sel ? 'selected' : ''}>${esc(erben)}</option>` : ''}${unknown}${opts}</select>
       <button type="button" class="ctrl" data-vf="play" title="Hörprobe abspielen">Probe anhören</button>
       <span class="voice-info" data-vf="info">${voiceInfo(sel)}</span></div>`;
   }
+  // Angezeigter Name passend zur aktiven Sprachausgabe (unter Azure spricht z. B. Conrad statt Thorsten)
+  function stimmLabel(v) {
+    if (ENGINE === 'azure') {
+      const n = v.azure_name || v.name;
+      return n === v.name || !v.modell ? `${n}, ${v.beschreibung.replace(/,?\s*nur Azure$/, '')}` : `${n} (Azure-Stimme für ${v.name}), ${v.beschreibung}`;
+    }
+    if (!v.modell) {
+      const std = KATALOG.stimmen.find(x => x.id === KAT_STANDARD[spracheVon(v)]);
+      return `${v.name}, nur mit Azure (bis dahin spricht ${std ? std.name : 'die Standardstimme'})`;
+    }
+    return `${v.name}, ${v.beschreibung}`;
+  }
   function voiceInfo(id) {
     const i = id && STIMMINFO[id];
-    return i ? `Lizenz: ${esc(i.lizenz)}` : '';
+    const v = id && KATALOG.stimmen.find(x => x.id === id);
+    if (v && !v.modell && ENGINE !== 'azure') return 'Diese Stimme gibt es nur mit Azure. Die Sprachausgabe läuft gerade mit Piper.';
+    if (!i) return '';
+    return ENGINE === 'azure' ? `Azure-Stimme ${esc(i.qualitaet)}, ${esc(i.lizenz)}` : `Lizenz: ${esc(i.lizenz)}`;
   }
   let hoerprobe = null;
   function bindVoice(root, get, set, fallback) {
@@ -112,8 +134,8 @@
     }
     return Object.assign({}, draft, { meta, kategorien: kat, nuggets });
   }
-  const speichereEntwurf = () => store.set(KEY_STUDIO, { original: draftOriginal, data });
-  let data = ladeEntwurf();
+  const speichereEntwurf = () => SERVER ? true : store.set(KEY_STUDIO, { original: draftOriginal, data });
+  let data = SERVER ? clone(published) : ladeEntwurf();
   data.meta = data.meta || {};
   let cur = data.nuggets.length ? 0 : -1;     // -1 = Einstellungen
 
@@ -123,7 +145,7 @@
   const libList = document.getElementById('lib-list');
   const kindOf = name => VIDEO_RE.test(name) ? 'video' : 'bild';
   // Pfad aus den Daten → abspielbare URL (lokale Datei hat Vorrang)
-  const urlOf = p => { const e = p && lib.get(fileOf(p)); return e ? e.url : p; };
+  const urlOf = p => { const e = p && lib.get(fileOf(p)); return e && (e.source === 'lokal' || e.source === 'upload') ? e.url : p; };
 
   function probe(entry) {
     entry.ok = null;
@@ -154,6 +176,7 @@
   }
 
   function addLocalFiles(files) {
+    if (SERVER) return hochladen(files);
     [...files].filter(f => VIDEO_RE.test(f.name) || BILD_RE.test(f.name)).forEach(f => {
       const old = lib.get(f.name);
       if (old && old.source === 'lokal') URL.revokeObjectURL(old.url);
@@ -171,11 +194,12 @@
       ? '<span class="st bad">Im Browser nicht abspielbar, vermutlich ProRes. Als H.264 ausgeben oder eine Grafik verwenden.</span>'
       : '<span class="st bad">Bild kann nicht geladen werden.</span>';
     else st = `<span class="st good">Bereit: ${e.kind === 'video' ? fmtS(e.duration) + ', ' : ''}${e.w} × ${e.h} px</span>`;
-    const big = e.size > 25 * 1024 * 1024 ? '<span class="st bad">Größer als 25 MB – Web-Upload bei GitHub nicht möglich</span>' : '';
+    const big = !SERVER && e.size > 25 * 1024 * 1024 ? '<span class="st bad">Größer als 25 MB – Web-Upload bei GitHub nicht möglich</span>' : '';
     const prev = e.ok === false ? '<span class="vthumb-x">!</span>'
       : e.kind === 'video' ? `<video src="${esc(e.url)}" muted preload="metadata" data-end></video>`
         : `<img src="${esc(e.url)}" alt="">`;
-    const where = e.source === 'lokal' ? (e.inRepo ? 'Lokal geladen, auch im Repository' : 'Lokal geladen, noch nicht hochgeladen') : 'Im Repository (media/)';
+    const where = e.source === 'upload' ? (e.fehler ? `<span class="bad">${esc(e.fehler)}</span>` : 'Wird hochgeladen …')
+      : SERVER ? 'Auf dem Server' : e.source === 'lokal' ? (e.inRepo ? 'Lokal geladen, auch im Repository' : 'Lokal geladen, noch nicht hochgeladen') : 'Im Repository (media/)';
     return `<li class="lib-item">${prev}<div><div class="nm">${esc(e.name)}</div>${st}<div class="st">${where}</div>${big}</div></li>`;
   }
 
@@ -203,7 +227,10 @@
     return { owner, name };
   })();
   const repoInfo = document.getElementById('repo-info');
-  if (repo) {
+  if (SERVER) {
+    document.getElementById('lib-text').textContent = 'Grafiken (SVG, PNG), Hintergrundbilder (JPG, PNG) und Videos (.mov, .mp4). Neue Dateien werden auf den Server hochgeladen und stehen allen im Studio zur Verfügung.';
+    ladeMedien();
+  } else if (repo) {
     repoInfo.textContent = 'Lade Dateien aus dem Repository …';
     fetch(`https://api.github.com/repos/${repo.owner}/${repo.name}/contents/media`)
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
@@ -223,6 +250,46 @@
   } else {
     repoInfo.textContent = 'Lokal geöffnet: Dateien aus media/ werden erst auf GitHub Pages automatisch aufgelistet.';
   }
+  // ---------- Eigener Server ----------
+  async function api(pfad, methode, daten, roh) {
+    const r = await fetch(pfad, { method: methode || 'GET', credentials: 'same-origin',
+      headers: roh ? { 'Content-Type': 'application/octet-stream' } : daten ? { 'Content-Type': 'application/json' } : {},
+      body: roh || (daten ? JSON.stringify(daten) : undefined) });
+    let j = null;
+    try { j = await r.json(); } catch (e) { /* leer */ }
+    if (r.status === 401) { location.href = '/anmelden?weiter=/studio'; throw new Error('Bitte neu anmelden.'); }
+    if (!r.ok) { const e = new Error((j && j.fehler) || `Fehler ${r.status}`); e.status = r.status; e.daten = j; throw e; }
+    return j;
+  }
+  function ladeMedien() {
+    repoInfo.textContent = 'Lade Dateien vom Server …';
+    api('/api/medien').then(list => {
+      list.forEach(f => {
+        const ex = lib.get(f.name);
+        if (ex && ex.source === 'server' && ex.size === f.groesse) return;
+        const e = { name: f.name, url: 'media/' + encodeURIComponent(f.name) + '?t=' + Date.parse(f.geaendert), source: 'server', kind: kindOf(f.name), size: f.groesse };
+        lib.set(f.name, e); probe(e);
+      });
+      repoInfo.textContent = `${list.length} Datei(en) auf dem Server.`;
+      drawLib(); renderEditor(true);
+    }).catch(e => { repoInfo.textContent = e.message; });
+  }
+  async function hochladen(files) {
+    const liste = [...files].filter(f => VIDEO_RE.test(f.name) || BILD_RE.test(f.name));
+    if (!liste.length) { repoInfo.textContent = 'Nur SVG, PNG, JPG, WEBP, MOV, MP4, M4V und WEBM sind möglich.'; return; }
+    for (const f of liste) {
+      const e = { name: f.name, url: URL.createObjectURL(f), source: 'upload', kind: kindOf(f.name), size: f.size, ok: null };
+      lib.set(f.name, e); drawLib();
+      try {
+        const r = await api('/api/medien?name=' + encodeURIComponent(f.name), 'POST', null, f);
+        URL.revokeObjectURL(e.url); lib.delete(f.name);
+        const ne = { name: r.name, url: r.pfad + '?t=' + Date.now(), source: 'server', kind: kindOf(r.name), size: f.size };
+        lib.set(r.name, ne); probe(ne);
+      } catch (err) { e.fehler = err.message; e.ok = false; drawLib(); }
+    }
+    drawLib(); renderEditor(true);
+  }
+
   // bereits referenzierte Dateien aufnehmen, damit Status sichtbar ist
   function referenced(d) {
     const out = new Set();
@@ -234,10 +301,13 @@
     bgs.forEach(b => { if (b && b.bild) out.add(b.bild); });
     return out;
   }
-  referenced(data).forEach(p => {
-    const nm = fileOf(p);
-    if (!lib.has(nm)) { const e = { name: nm, url: p, source: 'repo', kind: kindOf(nm) }; lib.set(nm, e); probe(e); }
-  });
+  function referenzenAufnehmen() {
+    if (SERVER) return;   // auf dem Server listet /api/medien alle Dateien
+    referenced(data).forEach(p => {
+      const nm = fileOf(p);
+      if (!lib.has(nm)) { const e = { name: nm, url: p, source: 'repo', kind: kindOf(nm) }; lib.set(nm, e); probe(e); }
+    });
+  }
 
   const fileIn = document.getElementById('file-in');
   fileIn.addEventListener('change', () => { addLocalFiles(fileIn.files); fileIn.value = ''; });
@@ -288,8 +358,35 @@
     return d;
   }
   const isDirty = () => JSON.stringify(cleanData(data)) !== JSON.stringify(cleanData(published));
+  // Server: gemeinsamer Entwurf mit Versionsnummer (verhindert, dass zwei Personen sich gegenseitig überschreiben)
+  const srv = { version: 0, offen: false, laeuft: false, konflikt: false, von: null, am: null };
+  const uhr = iso => new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  function zeigeStand() {
+    if (srv.konflikt) return;
+    saveState.textContent = srv.offen || srv.laeuft ? 'Speichert …'
+      : !isDirty() ? 'Keine Änderungen gegenüber der veröffentlichten Fassung'
+      : `Entwurf gespeichert${srv.am ? ' um ' + uhr(srv.am) : ''}${srv.von && srv.von !== KONTO.benutzer ? ` (zuletzt von ${srv.von})` : ''}, noch nicht veröffentlicht`;
+  }
+  async function serverSpeichern() {
+    if (srv.laeuft || srv.konflikt) { srv.offen = true; return; }
+    srv.offen = false; srv.laeuft = true; zeigeStand();
+    try {
+      const r = await api('/api/entwurf', 'PUT', { version: srv.version, data: cleanData(data) });
+      srv.version = r.version; srv.am = r.am; srv.von = KONTO.benutzer;
+    } catch (e) {
+      if (e.status === 409) {
+        srv.konflikt = true;
+        saveState.innerHTML = `${esc(e.message)} <button class="linkbtn on-dark" type="button" id="btn-neu-laden">Neu laden</button>`;
+        document.getElementById('btn-neu-laden').addEventListener('click', () => location.reload());
+      } else { saveState.textContent = `Nicht gespeichert: ${e.message}`; srv.offen = true; }
+    }
+    srv.laeuft = false;
+    if (srv.offen && !srv.konflikt) { clearTimeout(saveT); saveT = setTimeout(serverSpeichern, 1500); }
+    zeigeStand();
+  }
   function save() {
     clearTimeout(saveT);
+    if (SERVER) { srv.offen = true; zeigeStand(); saveT = setTimeout(serverSpeichern, 900); return; }
     saveT = setTimeout(() => {
       const ok = speichereEntwurf();
       saveState.textContent = !ok ? 'Entwurf konnte nicht im Browser gespeichert werden'
@@ -304,7 +401,10 @@
     const kat = Object.fromEntries(data.kategorien.map(k => [k.id, k.name]));
     settingsBtn.setAttribute('aria-current', cur === -1);
     listEl.innerHTML = data.nuggets.map((n, i) => `<li><button data-i="${i}" aria-current="${i === cur}">
-      <span>${esc(n.titel || '(ohne Titel)')}</span><small>${[n.sprache === 'en' ? 'Englisch' : '', esc(kat[n.kategorie] || ''), n.szenen.length + ' Szenen', n.freigabestatus === 'freigegeben' ? 'freigegeben' : ''].filter(Boolean).join(', ')}</small></button></li>`).join('');
+      <span>${esc(n.titel || '(ohne Titel)')}</span><small>${[n.sprache === 'en' ? 'Englisch' : '', esc(kat[n.kategorie] || ''), n.szenen.length + ' Szenen', n.freigabestatus === 'freigegeben' ? 'freigegeben' : '', SERVER && n.oeffentlich ? 'öffentlich geteilt' : ''].filter(Boolean).join(', ')}</small></button></li>`).join('');
+    const akt = data.nuggets[cur];
+    document.getElementById('bar-kontext').textContent = cur === -1 ? 'Studio' : 'Lernnugget bearbeiten';
+    document.getElementById('bar-name').textContent = cur === -1 ? 'Einstellungen der Plattform' : akt ? (akt.titel || '(ohne Titel)') : 'Inhalte';
     listEl.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { cur = +b.dataset.i; renderAll(); editor.focus(); }));
   }
   settingsBtn.addEventListener('click', () => { cur = -1; renderAll(); editor.focus(); });
@@ -320,7 +420,12 @@
     cur = data.nuggets.length - 1; renderAll(); save();
     const t = editor.querySelector('[data-f="titel"]'); if (t) { t.focus(); t.select(); }
   });
-  document.getElementById('btn-reset').addEventListener('click', () => {
+  document.getElementById('btn-reset').addEventListener('click', async () => {
+    if (SERVER) {
+      if (!confirm('Den gemeinsamen Entwurf verwerfen? Alle noch nicht veröffentlichten Änderungen gehen für alle verloren.')) return;
+      try { await api('/api/entwurf', 'DELETE'); } catch (e) { alert(e.message); return; }
+      store.del(KEY_PREVIEW); location.reload(); return;
+    }
     if (!confirm('Alle Änderungen in diesem Browser verwerfen und die veröffentlichte Version laden?')) return;
     data = clone(published); store.del(KEY_STUDIO); store.del(KEY_PREVIEW); cur = 0; renderAll(); save();
   });
@@ -461,6 +566,9 @@
             <option value="entwurf" ${n.freigabestatus !== 'freigegeben' ? 'selected' : ''}>Entwurf – fachlich ungeprüft</option>
             <option value="freigegeben" ${n.freigabestatus === 'freigegeben' ? 'selected' : ''}>Fachlich freigegeben</option></select></label>
           ${field('ID', 'id', n.id, { hint: 'Teil der Adresse und der Dateinamen' })}
+          ${SERVER ? `<div class="field full teilen"><span>Teilen</span>
+            <label class="check"><input type="checkbox" data-f="oeffentlich" ${n.oeffentlich ? 'checked' : ''}> Öffentlich teilbar: über einen Link auch ohne Anmeldung ansehen</label>
+            <p class="hint-line" id="teilen-link">${n.oeffentlich ? `Link nach dem Veröffentlichen: <code>${esc(location.origin)}/teilen/${esc(n.id)}</code>` : 'Ohne Haken sehen nur angemeldete Konten dieses Lernnugget.'}</p></div>` : ''}
           <div class="field full"><span>Stimme für alle Szenen dieses Lernnuggets</span>${voiceSelect(n.stimme, `wie Standard (${n.sprache === 'en' ? 'Englisch' : 'Deutsch'})`, 'n', n.sprache)}</div>
           <div class="field full"><span>Hintergrund für alle Szenen dieses Lernnuggets</span>${bgEditor(n.hintergrund, 'Standard der Plattform', 'n')}</div>
         </div>
@@ -568,6 +676,10 @@
     wireStages();
     editor.querySelectorAll('[data-f]').forEach(el => el.addEventListener('input', () => {
       const f = el.dataset.f;
+      if (f === 'oeffentlich') {
+        if (el.checked) n.oeffentlich = true; else delete n.oeffentlich;
+        save(); renderNav(); return renderEditor();
+      }
       if (f === 'schlagwoerter') n.schlagwoerter = el.value.split(',');
       else if (f === 'id') n.id = slug(el.value);
       else n[f] = el.value;
@@ -687,6 +799,7 @@
       if (!p) return;
       const e = lib.get(fileOf(p));
       if (!e) issues.push(`${where}: Datei „${fileOf(p)}“ nicht gefunden.`);
+      else if (e.source === 'upload') issues.push(`${where}: „${e.name}“ ist noch nicht hochgeladen.`);
       else if (e.ok === false) issues.push(`${where}: „${e.name}“ kann nicht angezeigt werden.`);
     };
     if (data.meta.hintergrund && data.meta.hintergrund.bild !== undefined && !data.meta.hintergrund.bild) issues.push('Standard-Hintergrund: Bild ausgewählt, aber keine Datei gewählt.');
@@ -709,8 +822,64 @@
   }
 
   const dlg = document.getElementById('dlg-export');
+  // ---------- Veröffentlichen auf dem eigenen Server ----------
+  let auftragT = 0;
+  function auftragHTML(a) {
+    if (!a || !a.start) return '<p class="hint-line">Noch keine Vertonung gelaufen.</p>';
+    const st = a.laeuft ? `Läuft seit ${uhr(a.start)} …` : a.ok ? `Fertig um ${uhr(a.ende)}` : `Abgebrochen um ${uhr(a.ende)}`;
+    return `<p class="auftrag-st ${a.laeuft ? '' : a.ok ? 'gut' : 'bad'}"><strong>Sprecher und Videos:</strong> ${st}${a.engine ? ` (Sprachausgabe: ${a.engine === 'azure' ? 'Azure' : 'Piper'})` : ''}</p>
+      <details class="auftrag-log" ${a.laeuft || !a.ok ? 'open' : ''}><summary>Protokoll</summary><pre>${esc((a.log || []).slice(-40).join('\n'))}</pre></details>`;
+  }
+  async function zeigeAuftrag() {
+    clearTimeout(auftragT);
+    const box = document.getElementById('auftrag'); if (!box || !dlg.open) return;
+    try {
+      const a = await api('/api/auftrag');
+      box.innerHTML = auftragHTML(a);
+      const pre = box.querySelector('pre'); if (pre) pre.scrollTop = pre.scrollHeight;
+      if (a.laeuft) auftragT = setTimeout(zeigeAuftrag, 2500);
+    } catch (e) { box.textContent = e.message; }
+  }
+  function dialogServer(issues) {
+    const geaendert = isDirty();
+    const oeff = cleanData(data).nuggets.filter(n => n.oeffentlich);
+    document.getElementById('dlg-body').innerHTML = `
+      ${issues.length ? `<div class="warn"><strong>Bitte prüfen:</strong><ul>${issues.map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>` : '<div class="ok-note">Keine Probleme gefunden.</div>'}
+      <p>${geaendert ? 'Der Entwurf enthält Änderungen, die noch nicht veröffentlicht sind.' : 'Der Entwurf entspricht der veröffentlichten Fassung.'}
+        ${ADMIN ? 'Nach dem Veröffentlichen vertont der Server geänderte Szenen und baut die MP4-Downloads neu. Das dauert je nach Umfang einige Minuten.'
+          : 'Ihre Änderungen sind auf dem Server gespeichert. Veröffentlichen kann nur ein Admin.'}</p>
+      ${oeff.length ? `<p class="hint-line">Öffentlich teilbar: ${oeff.map(n => `<a href="/teilen/${esc(n.id)}" target="_blank" rel="noopener">${esc(n.titel)}</a>`).join(', ')}</p>` : ''}
+      <div id="auftrag"></div>`;
+    document.getElementById('dlg-actions').innerHTML = `<button class="btn ghost" value="close">Schließen</button>
+      ${ADMIN ? `<button class="btn ghost" id="btn-neu-vertonen" type="button" title="Alle Szenen neu vertonen, z. B. nach einem Stimmenwechsel bei Azure">Alles neu vertonen</button>
+      <button class="btn" id="btn-publish" type="button" ${geaendert ? '' : 'disabled'}>Jetzt veröffentlichen</button>` : ''}`;
+    if (ADMIN) {
+      document.getElementById('btn-publish').addEventListener('click', async ev => {
+        const b = ev.currentTarget;
+        if (issues.length && !confirm('Es gibt noch Hinweise. Trotzdem veröffentlichen?')) return;
+        b.disabled = true; b.textContent = 'Wird veröffentlicht …';
+        try {
+          clearTimeout(saveT); if (srv.offen) await serverSpeichern();
+          await api('/api/veroeffentlichen', 'POST', { data: cleanData(data) });
+          published.meta = clone(data.meta); Object.assign(published, clone(cleanData(data)));
+          srv.version = 0; srv.am = null; zeigeStand();
+          b.textContent = 'Veröffentlicht';
+          setTimeout(zeigeAuftrag, 600);
+        } catch (e) { b.disabled = false; b.textContent = 'Jetzt veröffentlichen'; alert(e.message); }
+      });
+      document.getElementById('btn-neu-vertonen').addEventListener('click', async () => {
+        if (!confirm('Alle Szenen und Hörproben der veröffentlichten Fassung neu vertonen? Das verbraucht bei Azure Zeichenkontingent.')) return;
+        try { await api('/api/auftrag', 'POST', { alles: true }); setTimeout(zeigeAuftrag, 600); } catch (e) { alert(e.message); }
+      });
+    }
+    dlg.showModal();
+    zeigeAuftrag();
+  }
+  dlg.addEventListener('close', () => clearTimeout(auftragT));
+
   document.getElementById('btn-export').addEventListener('click', () => {
     const issues = validate();
+    if (SERVER) return dialogServer(issues);
     const toUpload = [...referenced(cleanData(data))].map(fileOf).filter(nm => { const e = lib.get(nm); return e && e.source === 'lokal' && !e.inRepo; });
     const gh = repo ? `https://github.com/${repo.owner}/${repo.name}` : null;
     document.getElementById('dlg-body').innerHTML = `
@@ -752,9 +921,26 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   });
 
-  const akz = SZ.normHex(data.meta.akzentfarbe);
-  if (akz) document.documentElement.style.setProperty('--accent', akz);
-  window.addEventListener('beforeunload', () => speichereEntwurf());
-  renderAll(); save();
-  if (mergeHinweis) setTimeout(() => { saveState.textContent = mergeHinweis; }, 400);
+  function start() {
+    data.meta = data.meta || {};
+    cur = data.nuggets.length ? 0 : -1;
+    referenzenAufnehmen(); drawLib();
+    const akz = SZ.normHex(data.meta.akzentfarbe);
+    if (akz) document.documentElement.style.setProperty('--accent', akz);
+    renderAll();
+    if (SERVER) zeigeStand(); else save();
+    if (mergeHinweis) setTimeout(() => { saveState.textContent = mergeHinweis; }, 400);
+  }
+  if (SERVER) {
+    window.addEventListener('beforeunload', e => { if (srv.offen || srv.laeuft) { e.preventDefault(); e.returnValue = ''; } });
+    document.getElementById('btn-export').textContent = ADMIN ? 'Veröffentlichen …' : 'Stand prüfen …';
+    saveState.textContent = 'Lade Entwurf …';
+    api('/api/entwurf').then(r => {
+      data = r.data; srv.version = r.version; srv.von = r.von; srv.am = r.am;
+      start();
+    }).catch(e => { saveState.textContent = `Entwurf konnte nicht geladen werden: ${e.message}`; start(); });
+  } else {
+    window.addEventListener('beforeunload', () => speichereEntwurf());
+    start();
+  }
 })();

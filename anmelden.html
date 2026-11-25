@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; font-src 'self'">
+  <meta name="robots" content="noindex">
+  <title>Anmelden – Lernnuggets</title>
+  <link rel="stylesheet" href="assets/style.css?v=__BUILD__">
+</head>
+<body class="seite-konto" data-seite="anmelden">
+  <header class="topbar">
+    <span class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-text"><strong>Lernnuggets</strong><small>Interner Bereich</small></span>
+    </span>
+    <nav class="topnav" aria-label="Hauptnavigation"></nav>
+  </header>
+
+  <main id="main" class="konto-main" tabindex="-1">
+    <section class="band"><h1 id="titel">Anmelden</h1><p id="untertitel">Mit dem Konto anmelden, das Sie vom Support erhalten haben.</p></section>
+
+    <form class="form-panel" id="f-anmelden" novalidate>
+      <label class="field"><span>Benutzername</span><input name="benutzer" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
+      <label class="field"><span>Passwort</span><input name="passwort" type="password" autocomplete="current-password" required></label>
+      <p class="form-msg" role="alert" aria-live="assertive"></p>
+      <div class="form-actions"><button class="btn" type="submit">Anmelden</button></div>
+      <p class="form-note">Passwort vergessen? Der Support setzt es zurück.</p>
+    </form>
+
+    <form class="form-panel" id="f-neu" hidden novalidate>
+      <p>Sie haben sich mit einem Einmal-Passwort angemeldet. Bitte legen Sie jetzt ein eigenes Passwort fest.</p>
+      <label class="field"><span>Einmal-Passwort</span><input name="alt" type="password" autocomplete="current-password" required></label>
+      <label class="field"><span>Neues Passwort <em class="hint">mindestens 10 Zeichen</em></span><input name="neu" type="password" autocomplete="new-password" minlength="10" required></label>
+      <label class="field"><span>Neues Passwort wiederholen</span><input name="neu2" type="password" autocomplete="new-password" required></label>
+      <p class="form-msg" role="alert" aria-live="assertive"></p>
+      <div class="form-actions"><button class="btn" type="submit">Passwort speichern</button></div>
+    </form>
+  </main>
+
+  <script src="assets/konto.js?v=__BUILD__"></script>
+</body>
+</html>

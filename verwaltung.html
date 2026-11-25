@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; font-src 'self'">
+  <title>Konten – Lernnuggets</title>
+  <link rel="stylesheet" href="assets/style.css?v=__BUILD__">
+</head>
+<body class="seite-konto" data-seite="verwaltung">
+  <header class="topbar">
+    <a href="/" class="brand" aria-label="Zur Übersicht">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-text"><strong>Lernnuggets</strong><small>Interner Bereich</small></span>
+    </a>
+    <nav class="topnav" aria-label="Hauptnavigation"></nav>
+  </header>
+
+  <main id="main" class="konto-main breit" tabindex="-1">
+    <section class="band"><h1>Konten</h1><p id="untertitel"></p></section>
+
+    <div class="einmal" id="einmal" hidden role="status">
+      <div><strong id="einmal-titel"></strong>
+        <p>Dieses Einmal-Passwort wird nur jetzt angezeigt. Geben Sie es der Person persönlich oder telefonisch weiter, nicht per E-Mail zusammen mit dem Benutzernamen. Beim ersten Anmelden wird ein eigenes Passwort festgelegt.</p></div>
+      <code id="einmal-pw"></code>
+      <div class="einmal-actions"><button class="btn ghost" id="einmal-copy" type="button">Kopieren</button><button class="ctrl" id="einmal-zu" type="button">Ausblenden</button></div>
+    </div>
+
+    <form class="neu-konto" id="f-neu" novalidate>
+      <h2>Neues Konto</h2>
+      <label class="field"><span>Name</span><input name="name" autocomplete="off" placeholder="Vor- und Nachname" required></label>
+      <label class="field"><span>Benutzername <em class="hint">a–z, 0–9, Punkt, Minus</em></span><input name="benutzer" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="z. B. m.muster" required></label>
+      <label class="field"><span>Rolle</span><select name="rolle" id="neu-rolle"></select></label>
+      <button class="btn" type="submit">Konto anlegen</button>
+      <p class="form-msg" role="alert" aria-live="assertive"></p>
+    </form>
+
+    <section class="tabelle-wrap" aria-labelledby="h-liste">
+      <div class="liste-kopf"><h2 id="h-liste">Alle Konten</h2><input type="search" id="suche" placeholder="Name oder Benutzername" aria-label="Konten durchsuchen"></div>
+      <table class="tabelle">
+        <thead><tr><th scope="col">Name</th><th scope="col">Benutzername</th><th scope="col">Rolle</th><th scope="col">Status</th><th scope="col">Letzte Anmeldung</th><th scope="col"><span class="sr">Aktionen</span></th></tr></thead>
+        <tbody id="liste"></tbody>
+      </table>
+      <p class="form-msg" id="liste-msg" role="alert"></p>
+    </section>
+
+    <section class="tabelle-wrap" id="bereich-protokoll" hidden aria-labelledby="h-prot">
+      <div class="liste-kopf"><h2 id="h-prot">Protokoll</h2><span class="form-note">Anmeldungen, Kontoänderungen und Veröffentlichungen, neueste zuerst</span></div>
+      <table class="tabelle klein">
+        <thead><tr><th scope="col">Zeit</th><th scope="col">Konto</th><th scope="col">Aktion</th><th scope="col">Details</th></tr></thead>
+        <tbody id="protokoll"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script src="assets/konto.js?v=__BUILD__"></script>
+</body>
+</html>

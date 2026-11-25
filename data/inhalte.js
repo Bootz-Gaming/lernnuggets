@@ -2,7 +2,7 @@ window.LERN_DATA = {
   "meta": {
     "titel": "Lernnuggets",
     "untertitel": "Kurze Erklärformate mit animierten Icons",
-    "version": "Prototyp 0.6",
+    "version": "Prototyp 0.7",
     "akzentfarbe": "#0b6fb8",
     "hintergrund": {
       "farbe": "#ffffff"

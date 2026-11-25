@@ -9,7 +9,8 @@ und audio/stimmen/index.js (Lizenz und Qualität je Stimme fürs Studio).
 Stimme je Szene: Szene → Lernnugget → Plattform-Standard der Sprache (meta.stimme / meta.stimme_en)
 → Katalog-Standard. Sprache je Lernnugget: Feld "sprache" ("de" Standard oder "en"); Stimmen
 einer anderen Sprache werden übersprungen.
-Der Stimmenkatalog steht in assets/stimmen.js.
+Der Stimmenkatalog steht in assets/stimmen.js. Stimmen ohne Piper-Modell (z. B. Florian, Seraphina)
+gibt es nur mit Azure; mit Piper spricht dafür die Standardstimme der Sprache.
 
 Engines:
   piper  – kostenlos, läuft im GitHub-Runner; benötigte Stimmen werden automatisch geladen
@@ -33,7 +34,9 @@ from pathlib import Path
 from xml.sax.saxutils import escape
 
 ROOT = Path(__file__).resolve().parent.parent
-AUDIO = ROOT / "audio"
+# Datenordner (Inhalte + audio/): auf dem Server getrennt vom Programm (Umgebungsvariable LERN_DATEN)
+DATEN = Path(os.environ.get("LERN_DATEN") or ROOT)
+AUDIO = DATEN / "audio"
 PROBEN = AUDIO / "stimmen"
 INDEX = AUDIO / "_index.json"
 HF = "https://huggingface.co/rhasspy/piper-voices/resolve/main"
@@ -110,7 +113,7 @@ def synth_azure(text, mp3, stimme, args):
     key = os.environ.get("AZURE_SPEECH_KEY")
     region = os.environ.get("AZURE_SPEECH_REGION", "germanywestcentral")
     if not key:
-        sys.exit("AZURE_SPEECH_KEY fehlt (GitHub: Settings > Secrets and variables > Actions).")
+        sys.exit("AZURE_SPEECH_KEY fehlt (GitHub: Settings > Secrets and variables > Actions; eigener Server: /etc/lernnuggets.env).")
     voice = stimme.get("azure") or args.azure_stimme
     rate = f"{round((1 / args.tempo - 1) * 100):+d}%"
     lang = voice[:5] if re.match(r"^[a-z]{2}-[A-Z]{2}", voice) else "de-DE"
@@ -145,10 +148,21 @@ def main():
 
     katalog = load_js(ROOT / "assets" / "stimmen.js")
     stimmen = {s["id"]: s for s in katalog["stimmen"]}
-    data = load_js(ROOT / "data" / "inhalte.js")
+    data = load_js(DATEN / "data" / "inhalte.js")
     meta = data.get("meta") or {}
     defaults = {"de": [meta.get("stimme"), katalog.get("standard", "thorsten")],
                 "en": [meta.get("stimme_en"), katalog.get("standard_en")]}
+
+    def piper_ersatz(v):
+        """Reine Azure-Stimme unter Piper: Standardstimme derselben Sprache mit Piper-Modell."""
+        if args.engine != "piper" or v.get("modell"):
+            return v
+        lang = v.get("sprache") or "de"
+        std = stimmen.get(katalog.get("standard_en" if lang == "en" else "standard"))
+        ersatz = std if std and std.get("modell") else next(x for x in stimmen.values()
+                                                             if x.get("modell") and (x.get("sprache") or "de") == lang)
+        print(f"  Hinweis: {v['name']} gibt es nur mit Azure – mit Piper spricht {ersatz['name']}")
+        return ersatz
 
     def resolve(n, sc):
         lang = n.get("sprache") or "de"
@@ -156,9 +170,9 @@ def main():
             if not sid: continue
             v = stimmen.get(sid)
             if v and (v.get("sprache") or "de") == lang:
-                return v
+                return piper_ersatz(v)
             print(f"  Hinweis: Stimme „{sid}“ {'unbekannt' if not v else 'passt nicht zur Sprache ' + lang} – nutze nächste Ebene")
-        return next(v for v in stimmen.values() if (v.get("sprache") or "de") == lang)
+        return piper_ersatz(next(v for v in stimmen.values() if (v.get("sprache") or "de") == lang))
 
     AUDIO.mkdir(exist_ok=True)
     index = json.loads(INDEX.read_text(encoding="utf-8")) if INDEX.exists() else {}
@@ -185,6 +199,9 @@ def main():
     if not args.ohne_proben:
         PROBEN.mkdir(exist_ok=True)
         for s in katalog["stimmen"]:
+            if args.engine == "piper" and not s.get("modell"):
+                infos[s["id"]] = {"lizenz": "nur mit Azure verfügbar", "qualitaet": "", "nur_azure": True}
+                continue
             key = f"stimmen/{s['id']}.mp3"
             wanted.add(key)
             satz = katalog.get("probesatz_en") if s.get("sprache") == "en" else katalog["probesatz"]
@@ -199,7 +216,8 @@ def main():
                 model_path(s["modell"], args.cache)
                 infos[s["id"]] = model_info(s["modell"], args.cache)
             else:
-                infos[s["id"]] = {"lizenz": "Azure AI Speech (Vertrag)", "qualitaet": s.get("azure") or args.azure_stimme}
+                infos[s["id"]] = {"lizenz": "Azure AI Speech (Vertrag)", "qualitaet": s.get("azure") or args.azure_stimme,
+                                  "name": s.get("azure_name") or s["name"]}
         (PROBEN / "index.js").write_text("window.LERN_STIMMEN_INFO = " + json.dumps(
             {"engine": args.engine, "stimmen": infos}, ensure_ascii=False, indent=1) + ";\n", encoding="utf-8")
 

@@ -53,6 +53,14 @@
   document.getElementById('brand-title').textContent = DATA.meta.titel;
   document.getElementById('brand-sub').textContent = DATA.meta.untertitel;
   document.getElementById('version').textContent = DATA.meta.version;
+  // Auf dem eigenen Server: Hinweis im Fuß passend zur Anmeldung
+  if (document.documentElement.dataset.server) {
+    const f = document.querySelector('.footer p');
+    if (f) f.innerHTML = document.documentElement.dataset.freigabe && !window.LERN_KONTO
+      ? '<strong>Öffentlich geteiltes Lernnugget.</strong> Ohne Tracking und ohne externe Verbindungen. Quiz-Ergebnisse werden nicht gespeichert.'
+      : '<strong>Interner Bereich.</strong> Ohne Tracking und ohne externe Verbindungen. Quiz-Ergebnisse werden nicht gespeichert. Inhalte sind vor Verwendung fachlich zu prüfen.';
+    if (document.documentElement.dataset.freigabe) { const b = document.querySelector('.brand'); if (b) b.setAttribute('href', location.pathname); }
+  }
   if (VORSCHAU) {
     const b = document.createElement('div');
     b.className = 'preview-banner';
@@ -102,9 +110,11 @@
 
   // ---------- Routing ----------
   let player = null;
+  // Server: /teilen/<id> zeigt genau ein öffentlich geteiltes Lernnugget (ohne Übersicht und Navigation)
+  const FREIGABE = document.documentElement.dataset.freigabe || null;
   function route() {
     if (player) { player.destroy(); player = null; }
-    const m = location.hash.match(/^#\/nugget\/([\w-]+)/);
+    const m = FREIGABE ? [null, FREIGABE] : location.hash.match(/^#\/nugget\/([\w-]+)/);
     const n = m && DATA.nuggets.find(x => x.id === m[1]);
     if (n) renderDetail(n); else renderHome();
     main.focus({ preventScroll: true });
@@ -182,7 +192,7 @@
     const idx = DATA.nuggets.indexOf(n);
     const prev = DATA.nuggets[idx - 1], next = DATA.nuggets[idx + 1];
     main.innerHTML = `
-      <nav class="crumbs" aria-label="${T.crumbs}"><a href="#/">${T.overview}</a> / ${esc(katName[n.kategorie])}</nav>
+      ${FREIGABE ? '<div class="crumbs"></div>' : `<nav class="crumbs" aria-label="${T.crumbs}"><a href="#/">${T.overview}</a> / ${esc(katName[n.kategorie])}</nav>`}
       <div class="detail-head">
         <h1>${esc(n.titel)}</h1>
         <div class="meta"><span class="tag">${esc(katName[n.kategorie])}</span>${n.sprache === 'en' ? `<span class="tag lang">${T.english}</span>` : ''}<span class="plain">${T.scenes(n.szenen.length)}, ${fmtDur(nuggetSeconds(n), T)}</span><span class="status ${n.freigabestatus}">${esc(T.st[n.freigabestatus] || n.freigabestatus)}</span></div>
@@ -211,7 +221,7 @@
         </aside>
         ${n.quiz && n.quiz.length ? '<section class="quiz" id="quiz" aria-labelledby="quiz-h"></section>' : ''}
       </div>
-      <nav class="pager" aria-label="${T.more}">
+      <nav class="pager" aria-label="${T.more}" ${FREIGABE ? 'hidden' : ''}>
         ${prev ? `<a href="#/nugget/${prev.id}"><small>${T.prev}</small><span>${esc(prev.titel)}</span></a>` : ''}
         ${next ? `<a class="next" href="#/nugget/${next.id}"><small>${T.next}</small><span>${esc(next.titel)}</span></a>` : ''}
       </nav>`;
