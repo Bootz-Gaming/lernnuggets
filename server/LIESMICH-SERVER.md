@@ -4,16 +4,16 @@ Adresse: **https://lernnuggets.bootz.digital** · Dienst `lernnuggets` · Port 8
 
 | Was | Wo |
 |---|---|
-| Programm (aus GitHub, nur lesbar) | `/opt/lernnuggets/app` |
+| Programm (aus dem Paket, nur lesbar) | `/opt/lernnuggets/app` (vorherige Fassung: `app.alt`) |
 | Daten: Inhalte, Medien, Audio, Videos, Konten, Protokoll | `/var/lib/lernnuggets` |
 | Einstellungen inkl. Azure-Schlüssel | `/etc/lernnuggets.env` (nur root) |
 
 ## Einrichten (einmalig)
 
 1. **DNS** (STRATO-Paket „Bootz Gaming“ → Domains → bootz.digital → Subdomain anlegen): `lernnuggets` mit A- und AAAA-Eintrag auf die IP des VPS, genau wie bei `studio.bootz.digital`.
-2. **Per SSH als root** auf dem VPS:
+2. **`lernnuggets.zip` per WinSCP nach `/root` hochladen**, dann per SSH als root:
    ```bash
-   curl -fsSL https://raw.githubusercontent.com/Bootz-Gaming/lernnuggets/main/server/install.sh | bash
+   cd /root && rm -rf lernnuggets-paket && python3 -m zipfile -e lernnuggets.zip lernnuggets-paket && bash lernnuggets-paket/server/install.sh
    ```
    Das Skript installiert ffmpeg, rsvg-convert und Pillow, legt Nutzer, Ordner, Dienst und den Caddy-Eintrag an
    und zeigt am Ende das **Einmal-Passwort** für das Admin-Konto `vincent`.
@@ -27,10 +27,11 @@ Beim ersten Start übernimmt der Server Inhalte, Grafiken und Sprecherdateien au
 
 | | Anwender | Support | Admin |
 |---|:-:|:-:|:-:|
-| Lernnuggets ansehen | ✓ | ✓ | ✓ |
+| Veröffentlichte Lernnuggets ansehen | ✓ | ✓ | ✓ |
+| Eigene Lernnuggets erstellen, Medien hochladen, zur Freigabe einreichen | ✓ | ✓ | ✓ |
+| Alle Lernnuggets im Studio bearbeiten | | ✓ | ✓ |
 | Anwender-Konten anlegen, sperren, Passwort zurücksetzen | | ✓ | ✓ |
-| Inhalte im Studio bearbeiten, Medien hochladen | | ✓ | ✓ |
-| Veröffentlichen, neu vertonen | | | ✓ |
+| Freigeben und veröffentlichen, neu vertonen | | | ✓ |
 | Support- und Admin-Konten, Rollen ändern, Konten löschen, Protokoll | | | ✓ |
 
 - Neue Konten bekommen ein **Einmal-Passwort**; beim ersten Anmelden wird ein eigenes gewählt (mind. 10 Zeichen).
@@ -40,8 +41,9 @@ Beim ersten Start übernimmt der Server Inhalte, Grafiken und Sprecherdateien au
 
 ## Studio auf dem Server
 
-- Alle mit Studio-Zugang arbeiten an **einem gemeinsamen Entwurf**, der automatisch gespeichert wird.
-  Ändern zwei Personen gleichzeitig, bekommt die zweite einen Hinweis und lädt neu, statt etwas zu überschreiben.
+- Alle arbeiten an **einem gemeinsamen Entwurf**, der automatisch gespeichert wird. Anwender sehen darin nur ihre eigenen Lernnuggets.
+  Gleichzeitige Änderungen an verschiedenen Lernnuggets führt der Server zusammen; nur bei demselben Lernnugget kommt ein Hinweis zum Neuladen.
+- Lernnuggets von Anwendern gehen erst live, wenn sie **zur Freigabe eingereicht** sind und ein Admin veröffentlicht.
 - Medien werden direkt hochgeladen (bis 300 MB pro Datei).
 - **Veröffentlichen** (nur Admin): Inhalte gehen live, die vorherige Fassung wird in `archiv/` aufgehoben (die letzten 30),
   dann vertont der Server geänderte Szenen und baut die Videos neu.
@@ -50,7 +52,8 @@ Beim ersten Start übernimmt der Server Inhalte, Grafiken und Sprecherdateien au
 
 | Aufgabe | Befehl |
 |---|---|
-| Update aus GitHub | `bash /opt/lernnuggets/app/server/install.sh` |
+| Update | neues `lernnuggets.zip` per WinSCP nach `/root`, dann derselbe Befehl wie beim Einrichten |
+| Update zurücknehmen | `rm -rf /opt/lernnuggets/app && mv /opt/lernnuggets/app.alt /opt/lernnuggets/app && systemctl restart lernnuggets` |
 | Status / Protokoll | `systemctl status lernnuggets` · `journalctl -u lernnuggets -f` |
 | Passwort vergessen (auch Admin) | `sudo -u lernnuggets env LERN_DATEN=/var/lib/lernnuggets node /opt/lernnuggets/app/server/server.js passwort-neu vincent` |
 | Weiteren Admin anlegen | wie oben, mit `admin-anlegen <name> "<Anzeigename>"` (oder in der Kontoverwaltung) |

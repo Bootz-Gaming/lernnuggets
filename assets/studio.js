@@ -30,6 +30,8 @@
   const KONTO = window.LERN_KONTO || null;
   const SERVER = !!KONTO;
   const ADMIN = SERVER && KONTO.rolle === 'admin';
+  const ERSTELLER = SERVER && KONTO.rolle === 'anwender';   // sieht und bearbeitet nur eigene Lernnuggets
+  let BESITZER = {};                                         // benutzer → { name, freigabe } (vom Server)
 
   // ---------- Stimmen ----------
   // Auswahl mit Hörprobe; erben = Bezeichnung der geerbten Ebene oder null (Plattform-Standard)
@@ -95,7 +97,7 @@
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'nugget';
   const fileOf = p => String(p || '').split('/').pop();
 
-  const published = clone(window.LERN_DATA);
+  let published = clone(window.LERN_DATA);
 
   // ---------- Entwurf mit der veröffentlichten Version abgleichen ----------
   // Gespeichert wird { original, data }: original = veröffentlichter Stand beim Start des Entwurfs.
@@ -332,6 +334,7 @@
     out.nuggets.forEach(n => {
       n.schlagwoerter = (n.schlagwoerter || []).map(s => s.trim()).filter(Boolean);
       if (!n.stimme) delete n.stimme;
+      if (!n.eingereicht) delete n.eingereicht;
       if (n.sprache !== 'en') delete n.sprache;
       const nb = cleanBg(n.hintergrund); if (nb) n.hintergrund = nb; else delete n.hintergrund;
       n.szenen.forEach(sc => {
@@ -371,8 +374,11 @@
     if (srv.laeuft || srv.konflikt) { srv.offen = true; return; }
     srv.offen = false; srv.laeuft = true; zeigeStand();
     try {
-      const r = await api('/api/entwurf', 'PUT', { version: srv.version, data: cleanData(data) });
+      const gesendet = cleanData(data);
+      const r = await api('/api/entwurf', 'PUT', { version: srv.version, data: gesendet });
       srv.version = r.version; srv.am = r.am; srv.von = KONTO.benutzer;
+      if (r.besitzer) BESITZER = r.besitzer;
+      if (r.data) uebernehme(gesendet, r.data);
     } catch (e) {
       if (e.status === 409) {
         srv.konflikt = true;
@@ -384,6 +390,31 @@
     if (srv.offen && !srv.konflikt) { clearTimeout(saveT); saveT = setTimeout(serverSpeichern, 1500); }
     zeigeStand();
   }
+  // Stand vom Server übernehmen (Änderungen anderer), ohne die laufende Eingabe zu stören
+  function uebernehme(gesendet, neu) {
+    const curId = data.nuggets[cur] && data.nuggets[cur].id;
+    const lokal = new Map(data.nuggets.map(n => [n.id, n])), sent = new Map(gesendet.nuggets.map(n => [n.id, n]));
+    const geaendert = new Set();
+    const liste = [];
+    neu.nuggets.forEach(n => {
+      const l = lokal.get(n.id), g = sent.get(n.id);
+      if (l && g && same(g, n)) liste.push(l);          // unverändert → lokales Objekt (evtl. mit neuen Eingaben)
+      else if (!l && g) { /* inzwischen lokal gelöscht */ }
+      else { liste.push(n); geaendert.add(n.id); }
+    });
+    data.nuggets.forEach(l => { if (!sent.has(l.id) && !neu.nuggets.some(n => n.id === l.id)) liste.push(l); });   // lokal neu
+    data.nuggets = liste;
+    if (!same(gesendet.meta, neu.meta) && !ERSTELLER) data.meta = neu.meta;
+    if (!same(gesendet.kategorien, neu.kategorien)) data.kategorien = neu.kategorien;
+    const i = data.nuggets.findIndex(n => n.id === curId);
+    if (cur !== -1) cur = i >= 0 ? i : (data.nuggets.length ? 0 : -1);
+    renderNav();
+    if (geaendert.has(curId) || i < 0) renderEditor();
+  }
+  // Freigabe: Lernnuggets von Anwendern gehen erst live, wenn sie eingereicht sind
+  const brauchtFreigabe = n => SERVER && !!n.besitzer && (ERSTELLER ? n.besitzer === KONTO.benutzer : !BESITZER[n.besitzer] || BESITZER[n.besitzer].freigabe);
+  const besitzerName = n => (BESITZER[n.besitzer] && BESITZER[n.besitzer].name) || n.besitzer;
+  const freigabeText = n => !brauchtFreigabe(n) ? '' : n.eingereicht ? 'zur Freigabe eingereicht' : 'in Arbeit';
   function save() {
     clearTimeout(saveT);
     if (SERVER) { srv.offen = true; zeigeStand(); saveT = setTimeout(serverSpeichern, 900); return; }
@@ -401,22 +432,25 @@
     const kat = Object.fromEntries(data.kategorien.map(k => [k.id, k.name]));
     settingsBtn.setAttribute('aria-current', cur === -1);
     listEl.innerHTML = data.nuggets.map((n, i) => `<li><button data-i="${i}" aria-current="${i === cur}">
-      <span>${esc(n.titel || '(ohne Titel)')}</span><small>${[n.sprache === 'en' ? 'Englisch' : '', esc(kat[n.kategorie] || ''), n.szenen.length + ' Szenen', n.freigabestatus === 'freigegeben' ? 'freigegeben' : '', SERVER && n.oeffentlich ? 'öffentlich geteilt' : ''].filter(Boolean).join(', ')}</small></button></li>`).join('');
+      <span>${esc(n.titel || '(ohne Titel)')}</span><small>${[n.sprache === 'en' ? 'Englisch' : '', esc(kat[n.kategorie] || ''), n.szenen.length + ' Szenen', n.freigabestatus === 'freigegeben' ? 'fachlich freigegeben' : '', SERVER && n.oeffentlich ? 'öffentlich geteilt' : '',
+        !ERSTELLER && brauchtFreigabe(n) ? `von ${esc(besitzerName(n))}` : '', freigabeText(n)].filter(Boolean).join(', ')}</small></button></li>`).join('');
     const akt = data.nuggets[cur];
     document.getElementById('bar-kontext').textContent = cur === -1 ? 'Studio' : 'Lernnugget bearbeiten';
-    document.getElementById('bar-name').textContent = cur === -1 ? 'Einstellungen der Plattform' : akt ? (akt.titel || '(ohne Titel)') : 'Inhalte';
+    document.getElementById('bar-name').textContent = cur === -1 ? (ERSTELLER ? 'Meine Lernnuggets' : 'Einstellungen der Plattform') : akt ? (akt.titel || '(ohne Titel)') : 'Inhalte';
     listEl.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { cur = +b.dataset.i; renderAll(); editor.focus(); }));
   }
   settingsBtn.addEventListener('click', () => { cur = -1; renderAll(); editor.focus(); });
 
   document.getElementById('btn-new').addEventListener('click', () => {
-    let id = 'neues-nugget', k = 2;
+    // Auf dem Server eindeutige ID, weil Anwender die Lernnuggets der anderen nicht sehen
+    let id = SERVER ? 'nugget-' + Date.now().toString(36) : 'neues-nugget', k = 2;
     while (data.nuggets.some(n => n.id === id)) id = 'neues-nugget-' + k++;
     data.nuggets.push({
       id, titel: 'Neues Lernnugget', kategorie: data.kategorien[0].id, schlagwoerter: [], kurztext: '', lernziel: '', langtext: '',
-      quelle: '', freigabestatus: 'entwurf',
+      quelle: '', freigabestatus: 'entwurf', ...(SERVER ? { besitzer: KONTO.benutzer } : {}),
       szenen: [{ icon: 'report', animation: 'fade', stichwort: '', text: '' }], quiz: []
     });
+    if (SERVER && !BESITZER[KONTO.benutzer]) BESITZER[KONTO.benutzer] = { name: KONTO.name, freigabe: ERSTELLER };
     cur = data.nuggets.length - 1; renderAll(); save();
     const t = editor.querySelector('[data-f="titel"]'); if (t) { t.focus(); t.select(); }
   });
@@ -536,9 +570,17 @@
       });
       return;
     }
-    if (cur === -1) return renderSettings();
+    if (cur === -1 && !ERSTELLER) return renderSettings();
     const n = data.nuggets[cur];
-    if (!n) { editor.innerHTML = '<div class="ed-card">Kein Lernnugget vorhanden. Links „Neues Lernnugget“ wählen.</div>'; return; }
+    if (!n) {
+      editor.innerHTML = ERSTELLER
+        ? `<section class="ed-card leer-start"><h2>Willkommen im Studio</h2><p>Hier erstellen Sie eigene Lernnuggets: Szenen mit Grafik, Sprechertext und Stimme, dazu ein Quiz.
+           Wenn ein Lernnugget fertig ist, reichen Sie es zur Freigabe ein. Ein Admin prüft es und veröffentlicht es dann für alle.</p>
+           <p><button class="btn" type="button" id="leer-neu">Erstes Lernnugget anlegen</button></p></section>`
+        : '<div class="ed-card">Kein Lernnugget vorhanden. Links „Neu anlegen“ wählen.</div>';
+      const b = editor.querySelector('#leer-neu'); if (b) b.addEventListener('click', () => document.getElementById('btn-new').click());
+      return;
+    }
     const katOpts = data.kategorien.map(k => `<option value="${k.id}" ${k.id === n.kategorie ? 'selected' : ''}>${esc(k.name)}</option>`).join('');
     const iconOpts = sel => Object.keys(ICONS).map(k => `<option ${k === sel ? 'selected' : ''}>${k}</option>`).join('');
     const animOpts = sel => SZ.ANIMATIONEN.map(([v, l]) => `<option value="${v}" ${v === (sel || 'fade') ? 'selected' : ''}>${l}</option>`).join('');
@@ -548,7 +590,20 @@
       return DAUERN.map(([v, l]) => `<option value="${v}" ${v === s ? 'selected' : ''}>${l}</option>`).join('')
         + `<option value="frei" ${!known ? 'selected' : ''}>eigene Angabe …</option>`;
     };
-    editor.innerHTML = `
+    const liveFassung = published.nuggets.some(x => x.id === n.id);
+    const freigabeBox = !brauchtFreigabe(n) ? '' : ERSTELLER ? `
+      <div class="freigabe ${n.eingereicht ? 'ist-eingereicht' : ''}">
+        <div><strong>${n.eingereicht ? 'Zur Freigabe eingereicht' : 'In Arbeit'}</strong>
+          <p>${n.eingereicht ? 'Ein Admin prüft das Lernnugget und veröffentlicht es. Weitere Änderungen werden mit übernommen.'
+            : liveFassung ? 'Ihre Änderungen sind gespeichert. Sichtbar bleibt die veröffentlichte Fassung, bis Sie erneut einreichen und ein Admin freigibt.'
+              : 'Ihre Änderungen sind gespeichert, aber nur für Sie und die Admins sichtbar. Wenn alles fertig ist, reichen Sie das Lernnugget zur Freigabe ein.'}</p></div>
+        <button class="btn ${n.eingereicht ? 'ghost' : ''}" type="button" id="btn-einreichen">${n.eingereicht ? 'Einreichung zurückziehen' : 'Zur Freigabe einreichen'}</button>
+      </div>` : `
+      <div class="freigabe ${n.eingereicht ? 'ist-eingereicht' : ''}">
+        <div><strong>Von ${esc(besitzerName(n))}, ${n.eingereicht ? 'zur Freigabe eingereicht' : 'noch in Arbeit'}</strong>
+          <p>${n.eingereicht ? 'Geht beim nächsten Veröffentlichen live.' : liveFassung ? 'Beim Veröffentlichen bleibt die bisherige Fassung online, bis die Änderungen eingereicht sind.' : 'Wird beim Veröffentlichen noch nicht übernommen.'}</p></div>
+      </div>`;
+    editor.innerHTML = `${freigabeBox}
       <section class="ed-card">
         <h2>Allgemein <button class="linkbtn" id="del-nugget">Lernnugget löschen</button></h2>
         <div class="fgrid">
@@ -562,11 +617,11 @@
           ${field('Erklärung', 'langtext', n.langtext, { full: true, area: true, rows: 4 })}
           ${field('Schlagwörter', 'schlagwoerter', (n.schlagwoerter || []).join(', '), { hint: 'mit Komma trennen – für die Suche' })}
           ${field('Quelle', 'quelle', n.quelle)}
-          <label class="field"><span>Freigabestatus</span><select data-f="freigabestatus">
+          <label class="field"><span>Fachliche Prüfung</span><select data-f="freigabestatus">
             <option value="entwurf" ${n.freigabestatus !== 'freigegeben' ? 'selected' : ''}>Entwurf – fachlich ungeprüft</option>
             <option value="freigegeben" ${n.freigabestatus === 'freigegeben' ? 'selected' : ''}>Fachlich freigegeben</option></select></label>
           ${field('ID', 'id', n.id, { hint: 'Teil der Adresse und der Dateinamen' })}
-          ${SERVER ? `<div class="field full teilen"><span>Teilen</span>
+          ${SERVER && !ERSTELLER ? `<div class="field full teilen"><span>Teilen</span>
             <label class="check"><input type="checkbox" data-f="oeffentlich" ${n.oeffentlich ? 'checked' : ''}> Öffentlich teilbar: über einen Link auch ohne Anmeldung ansehen</label>
             <p class="hint-line" id="teilen-link">${n.oeffentlich ? `Link nach dem Veröffentlichen: <code>${esc(location.origin)}/teilen/${esc(n.id)}</code>` : 'Ohne Haken sehen nur angemeldete Konten dieses Lernnugget.'}</p></div>` : ''}
           <div class="field full"><span>Stimme für alle Szenen dieses Lernnuggets</span>${voiceSelect(n.stimme, `wie Standard (${n.sprache === 'en' ? 'Englisch' : 'Deutsch'})`, 'n', n.sprache)}</div>
@@ -705,6 +760,18 @@
       while (data.kategorien.some(x => x.id === id)) id = `${base}-${k++}`;
       data.kategorien.push({ id, name }); n.kategorie = id; renderAll(); save();
     });
+    const einr = editor.querySelector('#btn-einreichen');
+    if (einr) einr.addEventListener('click', () => {
+      if (!n.eingereicht) {
+        const t = n.titel || n.id, fehlt = [];
+        if (!n.titel) fehlt.push('Titel');
+        n.szenen.forEach((sc, k) => { if (!String(sc.text || '').trim()) fehlt.push(`Sprechertext in Szene ${k + 1}`); });
+        if (fehlt.length) { alert(`Bitte vor dem Einreichen ergänzen: ${fehlt.join(', ')}.`); return; }
+        if (!confirm(`„${t}“ zur Freigabe einreichen?`)) return;
+        n.eingereicht = true;
+      } else delete n.eingereicht;
+      save(); renderAll();
+    });
     editor.querySelector('#del-nugget').addEventListener('click', () => {
       if (!confirm(`„${n.titel}“ wirklich löschen?`)) return;
       data.nuggets.splice(cur, 1); cur = Math.max(-1, Math.min(cur, data.nuggets.length - 1)); renderAll(); save();
@@ -840,14 +907,36 @@
       if (a.laeuft) auftragT = setTimeout(zeigeAuftrag, 2500);
     } catch (e) { box.textContent = e.message; }
   }
+  function dialogErsteller(issues) {
+    const eigene = cleanData(data).nuggets;
+    document.getElementById('dlg-h').textContent = 'Freigabe';
+    document.getElementById('dlg-body').innerHTML = `
+      <p>Ihre Lernnuggets werden automatisch gespeichert. Ein Admin veröffentlicht alles, was Sie zur Freigabe eingereicht haben.</p>
+      ${eigene.length ? `<table class="frei-liste"><tbody>${eigene.map(n => `<tr><td>${esc(n.titel || n.id)}</td>
+        <td>${n.eingereicht ? '<span class="status freigegeben">Eingereicht</span>' : '<span class="status entwurf">In Arbeit</span>'}</td>
+        <td>${published.nuggets.some(x => x.id === n.id) ? 'veröffentlicht' : 'noch nicht veröffentlicht'}</td></tr>`).join('')}</tbody></table>`
+        : '<p class="hint-line">Sie haben noch keine eigenen Lernnuggets.</p>'}
+      ${issues.length ? `<div class="warn"><strong>Noch offen:</strong><ul>${issues.map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>` : ''}
+      <p class="hint-line">Einreichen: Lernnugget links auswählen und oben auf „Zur Freigabe einreichen“ klicken.</p>`;
+    document.getElementById('dlg-actions').innerHTML = '<button class="btn" value="close">Schließen</button>';
+    dlg.showModal();
+  }
   function dialogServer(issues) {
+    if (ERSTELLER) return dialogErsteller(issues);
     const geaendert = isDirty();
+    const d = cleanData(data);
+    const eingereicht = d.nuggets.filter(n => brauchtFreigabe(n) && n.eingereicht);
+    const inArbeit = d.nuggets.filter(n => brauchtFreigabe(n) && !n.eingereicht);
+    const entfernt = published.nuggets.filter(p => !d.nuggets.some(n => n.id === p.id));
     const oeff = cleanData(data).nuggets.filter(n => n.oeffentlich);
     document.getElementById('dlg-body').innerHTML = `
       ${issues.length ? `<div class="warn"><strong>Bitte prüfen:</strong><ul>${issues.map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>` : '<div class="ok-note">Keine Probleme gefunden.</div>'}
       <p>${geaendert ? 'Der Entwurf enthält Änderungen, die noch nicht veröffentlicht sind.' : 'Der Entwurf entspricht der veröffentlichten Fassung.'}
         ${ADMIN ? 'Nach dem Veröffentlichen vertont der Server geänderte Szenen und baut die MP4-Downloads neu. Das dauert je nach Umfang einige Minuten.'
           : 'Ihre Änderungen sind auf dem Server gespeichert. Veröffentlichen kann nur ein Admin.'}</p>
+      ${eingereicht.length ? `<p><strong>Zur Freigabe eingereicht:</strong> ${eingereicht.map(n => `${esc(n.titel || n.id)} (${esc(besitzerName(n))})`).join(', ')}${ADMIN ? '. Wird mit veröffentlicht.' : ''}</p>` : ''}
+      ${inArbeit.length ? `<p class="hint-line">Noch in Arbeit und deshalb nicht dabei: ${inArbeit.map(n => `${esc(n.titel || n.id)} (${esc(besitzerName(n))})`).join(', ')}</p>` : ''}
+      ${entfernt.length ? `<p class="hint-line">Wird entfernt: ${entfernt.map(n => esc(n.titel || n.id)).join(', ')}</p>` : ''}
       ${oeff.length ? `<p class="hint-line">Öffentlich teilbar: ${oeff.map(n => `<a href="/teilen/${esc(n.id)}" target="_blank" rel="noopener">${esc(n.titel)}</a>`).join(', ')}</p>` : ''}
       <div id="auftrag"></div>`;
     document.getElementById('dlg-actions').innerHTML = `<button class="btn ghost" value="close">Schließen</button>
@@ -860,9 +949,11 @@
         b.disabled = true; b.textContent = 'Wird veröffentlicht …';
         try {
           clearTimeout(saveT); if (srv.offen) await serverSpeichern();
-          await api('/api/veroeffentlichen', 'POST', { data: cleanData(data) });
-          published.meta = clone(data.meta); Object.assign(published, clone(cleanData(data)));
-          srv.version = 0; srv.am = null; zeigeStand();
+          const r = await api('/api/veroeffentlichen', 'POST', { version: srv.version, data: cleanData(data) });
+          const curId = data.nuggets[cur] && data.nuggets[cur].id;
+          published = r.live; data = r.entwurf.data; srv.version = r.entwurf.version; srv.am = null; BESITZER = r.besitzer || BESITZER;
+          const i = data.nuggets.findIndex(n => n.id === curId); if (cur !== -1) cur = i >= 0 ? i : 0;
+          renderAll(); zeigeStand();
           b.textContent = 'Veröffentlicht';
           setTimeout(zeigeAuftrag, 600);
         } catch (e) { b.disabled = false; b.textContent = 'Jetzt veröffentlichen'; alert(e.message); }
@@ -933,10 +1024,17 @@
   }
   if (SERVER) {
     window.addEventListener('beforeunload', e => { if (srv.offen || srv.laeuft) { e.preventDefault(); e.returnValue = ''; } });
-    document.getElementById('btn-export').textContent = ADMIN ? 'Veröffentlichen …' : 'Stand prüfen …';
+    document.getElementById('btn-export').textContent = ADMIN ? 'Veröffentlichen …' : ERSTELLER ? 'Freigabe …' : 'Stand prüfen …';
+    if (ERSTELLER) {
+      document.getElementById('btn-settings').hidden = true;
+      document.getElementById('btn-reset').hidden = true;
+      document.querySelector('.nav-head h2').textContent = 'Meine Lernnuggets';
+    }
     saveState.textContent = 'Lade Entwurf …';
     api('/api/entwurf').then(r => {
       data = r.data; srv.version = r.version; srv.von = r.von; srv.am = r.am;
+      if (r.live) published = r.live;
+      BESITZER = r.besitzer || {};
       start();
     }).catch(e => { saveState.textContent = `Entwurf konnte nicht geladen werden: ${e.message}`; start(); });
   } else {

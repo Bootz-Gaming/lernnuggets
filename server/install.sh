@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Lernnuggets auf dem eigenen Server einrichten oder aktualisieren (Ubuntu 24.04, als root ausführen).
 #
-#   Erstes Mal:   curl -fsSL https://raw.githubusercontent.com/Bootz-Gaming/lernnuggets/main/server/install.sh | bash
-#   Update:       bash /opt/lernnuggets/app/server/install.sh
+#   1. lernnuggets.zip per WinSCP nach /root hochladen
+#   2. cd /root && rm -rf lernnuggets-paket && python3 -m zipfile -e lernnuggets.zip lernnuggets-paket && bash lernnuggets-paket/server/install.sh
+#
+# Erstes Mal und Update funktionieren gleich. Daten in /var/lib/lernnuggets bleiben bei Updates unberührt.
 #
 # Legt an: Systemnutzer "lernnuggets", Programm in /opt/lernnuggets/app, Daten in /var/lib/lernnuggets,
 # Einstellungen in /etc/lernnuggets.env, systemd-Dienst "lernnuggets", Caddy-Eintrag für die Domain.
@@ -10,7 +12,7 @@ set -euo pipefail
 
 DOMAIN="${DOMAIN:-lernnuggets.bootz.digital}"
 PORT="${PORT:-8780}"
-REPO="${REPO:-https://github.com/Bootz-Gaming/lernnuggets.git}"
+QUELLE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP=/opt/lernnuggets/app
 DATEN=/var/lib/lernnuggets
 ENVDATEI=/etc/lernnuggets.env
@@ -21,9 +23,11 @@ ADMIN_NAME="${ADMIN_NAME:-Vincent Stöckl}"
 [ "$(id -u)" = 0 ] || { echo "Bitte als root ausführen."; exit 1; }
 schritt() { printf '\n== %s\n' "$*"; }
 
-schritt "Pakete (ffmpeg, rsvg-convert, Schrift, Pillow, git)"
+[ -f "$QUELLE/server/server.js" ] || { echo "server.js nicht gefunden – bitte das Skript aus dem entpackten Paket starten."; exit 1; }
+
+schritt "Pakete (ffmpeg, rsvg-convert, Schrift, Pillow)"
 apt-get update -qq
-DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ffmpeg librsvg2-bin fonts-dejavu-core python3-pil git >/dev/null
+DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ffmpeg librsvg2-bin fonts-dejavu-core python3-pil >/dev/null
 command -v node >/dev/null || { echo "Node.js fehlt (ab Version 20 nötig)."; exit 1; }
 NODEV=$(node -p 'process.versions.node.split(".")[0]')
 [ "$NODEV" -ge 20 ] || { echo "Node.js $NODEV ist zu alt, ab 20 nötig."; exit 1; }
@@ -34,14 +38,16 @@ id lernnuggets >/dev/null 2>&1 || useradd --system --home-dir /opt/lernnuggets -
 mkdir -p /opt/lernnuggets "$DATEN"
 chown lernnuggets:lernnuggets "$DATEN"; chmod 750 "$DATEN"
 
-schritt "Programm aus GitHub holen"
-if [ -d "$APP/.git" ]; then
-  git -C "$APP" fetch -q origin main && git -C "$APP" reset -q --hard origin/main
-else
-  git clone -q --depth 1 "$REPO" "$APP"
+schritt "Programm nach $APP kopieren"
+if [ "$QUELLE" != "$APP" ]; then
+  rm -rf "$APP.neu"
+  cp -a "$QUELLE" "$APP.neu"
+  rm -rf "$APP.alt"
+  [ -d "$APP" ] && mv "$APP" "$APP.alt"
+  mv "$APP.neu" "$APP"
 fi
 chown -R root:root "$APP"; chmod -R a+rX "$APP"
-echo "Stand: $(git -C "$APP" log -1 --format='%h %s')"
+echo "Stand: $(cat "$APP/VERSION" 2>/dev/null || echo unbekannt)  (vorherige Fassung: $APP.alt)"
 
 schritt "Einstellungen ($ENVDATEI)"
 if [ ! -f "$ENVDATEI" ]; then

@@ -1,131 +1,74 @@
 # Lernnuggets – Prototyp 0.7
 
-Webbasierter Lern-Prototyp (Handlungsplan Nr. 13–16) im Stil von Erklärvideos:
-eigene After-Effects-Animationen, Sprecher, Untertitel, Quiz. Läuft komplett im Browser über
-**GitHub Pages**. Auf dem Firmenlaptop muss nichts installiert und kein Befehl ausgeführt werden.
+Lernplattform im Stil von Erklärvideos: Grafiken mit Animation oder eigene Videos, Sprecher, Untertitel, Quiz und
+MP4-Download. Läuft ausschließlich auf dem eigenen Server unter **https://lernnuggets.bootz.digital**.
+Einrichtung, Updates und Pflege: [`server/LIESMICH-SERVER.md`](server/LIESMICH-SERVER.md).
 
-- **Lernplattform:** `index.html` – Suche, Kategorien, Erklär-Player, Quiz
-- **Studio:** `studio.html` – Inhalte bearbeiten, Grafiken und Hintergründe zuordnen, Vorschau, Veröffentlichen
-- **Sprecher:** werden automatisch von GitHub erzeugt (Test: Piper, kostenlos · später: Azure AI Speech)
-- **MP4-Downloads:** GitHub baut pro Lernnugget ein fertiges Video mit Sprecher und zuschaltbaren Untertiteln
-- **Eigener Server (neu):** dieselbe Plattform mit Konten (Admin, Support, Anwender), gemeinsamem Studio-Entwurf,
-  Upload und Vertonung direkt auf dem Server, einzeln öffentlich teilbaren Lernnuggets → [`server/LIESMICH-SERVER.md`](server/LIESMICH-SERVER.md)
+- **Lernplattform** – Suche, Kategorien, Erklär-Player, Quiz, MP4-Download (alle angemeldeten Konten)
+- **Studio** – Lernnuggets erstellen und bearbeiten, Medien hochladen, Vorschau, Freigabe und Veröffentlichen
+- **Konten** – Admin, Support, Anwender; einzelne Lernnuggets öffentlich per Link teilbar
 
----
+## Rollen und Ablauf
 
-## 1. Einmalig einrichten (nur Browser, ca. 10 Minuten)
+1. **Anwender** erstellen im Studio eigene Lernnuggets. Sie sehen dort nur ihre eigenen; alles wird automatisch gespeichert.
+2. Ist ein Lernnugget fertig: oben **„Zur Freigabe einreichen“**.
+3. Ein **Admin** sieht im Studio „von …, zur Freigabe eingereicht“ bzw. „in Arbeit“ und klickt **„Veröffentlichen …“**.
+   Live gehen alle Änderungen von Admin und Support sowie eingereichte Lernnuggets. Was noch in Arbeit ist, bleibt im Entwurf;
+   bei bereits veröffentlichten Lernnuggets bleibt bis zur nächsten Freigabe die bisherige Fassung online.
+4. Der Server vertont geänderte Szenen und baut die MP4-Downloads neu.
 
-1. Auf github.com anmelden → oben rechts **＋** → **New repository**
-   Name z. B. `lernnuggets`, **Public** (GitHub Pages ist im Gratis-Tarif nur für öffentliche Repositories verfügbar), **Create repository**.
-2. Auf der leeren Repository-Seite **„uploading an existing file“** anklicken.
-3. Den **Inhalt** des entpackten Ordners `lernnuggets-prototyp` (nicht den Ordner selbst) in das Browserfenster ziehen
-   – inklusive des Ordners `.github`. → **Commit changes**.
-   *Falls `.github` nicht mit hochgeladen wird (versteckter Ordner):* **Add file → Create new file**, als Namen
-   `.github/workflows/veroeffentlichen.yml` eintippen, Inhalt der gleichnamigen Datei hineinkopieren, **Commit changes**.
-4. **Settings → Pages → Build and deployment → Source: „GitHub Actions“** auswählen.
-5. **Actions**-Reiter öffnen → Workflow „Veröffentlichen“ → **Run workflow**.
-   Nach 3–5 Minuten ist die Seite online unter `https://<dein-github-name>.github.io/lernnuggets/`
-   (Studio: `…/lernnuggets/studio.html`).
+**Support** betreut die Anwender-Konten und kann alle Inhalte bearbeiten, aber nicht veröffentlichen.
+Arbeiten mehrere Personen gleichzeitig im Studio, führt der Server die Änderungen pro Lernnugget zusammen; nur wenn zwei
+dasselbe Lernnugget gleichzeitig ändern, kommt ein Hinweis zum Neuladen.
 
-> **Wichtig:** Die Seite ist öffentlich erreichbar. Laut Handlungsplan (Nr. 5) nur **neutrale Demo-Inhalte** verwenden –
-> keine internen Inhalte, kein Firmenlogo – bis Hosting und Markenauftritt intern freigegeben sind.
+## Grafiken, Animationen und Hintergründe
 
-## 2. Grafiken, Animationen und Hintergründe
+Pro Szene eine Grafik wählen und die Animation einstellen: Slide von links, von rechts, von unten, Pop-up, Zoom, Fade-in.
+Optional eine **Mindestdauer** (3, 5, 10 s oder eigene Angabe), sonst richtet sich die Szene nach dem Sprecher.
 
-**Empfohlen: Grafik + Animation aus dem Studio.** Pro Szene eine Grafik hochladen und im Studio die Animation wählen:
-Slide von links, Slide von rechts, Slide von unten, Pop-up, Zoom, Fade-in. Dazu optional eine **Mindestdauer**
-(3, 5, 10 s oder eigene Angabe) – sonst richtet sich die Szene nach dem Sprecher.
-
-| Grafikformat | Hinweis |
+| Format | Hinweis |
 |---|---|
-| **SVG** (empfohlen) | z. B. direkt von unDraw; winzig und in jeder Größe scharf |
+| **SVG** (empfohlen) | winzig und in jeder Größe scharf |
 | **PNG mit Transparenz** | ca. 1600 px breit, aus Illustrator oder After Effects |
+| **Vollbild-Grafik** | fertige Erklärgrafik 1920×1080 mit eigenem Titel (Darstellung „Vollbild“) |
+| **Fertiges Video** | H.264 als .mov/.mp4 (ProRes läuft im Browser nicht) |
 
-**Hintergrund** – drei Ebenen, die jeweils die darüberliegende ersetzen:
-1. **Standard** für die ganze Plattform (Studio → „⚙ Einstellungen“)
-2. **pro Lernnugget** (Bereich „Allgemein“)
-3. **pro Szene** (in jeder Szene)
+**Hintergrund** auf drei Ebenen: Standard der Plattform (Einstellungen) → Lernnugget → Szene, jeweils als Farbe oder Bild
+(JPG/PNG, ideal 1920×1080). Stichwörter werden automatisch lesbar dargestellt.
 
-Jeweils als **Farbe** (Farbwähler oder Hex-Wert, z. B. `#eef4fa`) oder als **Bild** (JPG/PNG, idealerweise 1920×1080,
-wird flächig eingepasst). Stichwörter werden automatisch lesbar dargestellt: weiß auf dunklen Farben, auf Bildern mit heller Plakette.
+## Sprecher
 
-**Ablauf im Studio:**
-1. Rechts unter „Medien“ Dateien wählen oder hineinziehen – sie werden nur im Browser geladen und geprüft.
-2. Pro Szene unter **„Bildinhalt“** die Grafik wählen, Animation und ggf. Mindestdauer einstellen. Vorschau anklicken = Animation abspielen.
-3. Hintergründe setzen (Standard / Lernnugget / Szene).
-4. **„Vorschau öffnen“** zeigt die komplette Plattform mit deinen Änderungen – nur in deinem Browser.
-5. **„Veröffentlichen …“** bietet zwei Wege, beide ohne .js-Download:
-   - **Kopieren und einfügen:** „Inhalte kopieren“, dann `data/inhalte.js` auf GitHub bearbeiten, Strg + A, Strg + V, „Commit changes“.
-   - **Als Datei:** „Als .json herunterladen“ und in den Ordner `data` hochladen – GitHub wandelt sie automatisch um.
-   Neue Medien kommen in den Ordner `media`. Die Links dorthin stehen im Dialog.
-
-**Fertige Videos** (aus AE) gehen weiterhin als Sonderfall: im Bildinhalt unter „Fertige Videos“ wählen.
-Format H.264 als .mov/.mp4 (ProRes läuft in keinem Browser außer Safari), max. 25 MB. Der gewählte Hintergrund ist
-dann nur rund um das Video sichtbar.
-
-## MP4-Downloads
-Bei jeder Veröffentlichung baut GitHub für jedes **geänderte** Lernnugget ein Video (1920×1080, H.264/AAC):
-gleiche Grafiken, Animationen, Hintergründe und Sprecher wie auf der Website. Die **Untertitel** sind als eigene Spur
-eingebettet (im Player zuschaltbar) und zusätzlich als `.srt` herunterladbar. Auf der Detailseite erscheint dafür der
-Button **„Video herunterladen (MP4)“**. Die Videos liegen nur in der veröffentlichten Seite, nicht im Repository.
-
-## 3. Sprecher (Text-to-Speech)
-
-Bei jeder Änderung an `data/inhalte.js` vertont der Workflow automatisch alle Szenen mit neuem oder geändertem Text
-und legt sie als `audio/<id>-<szene>.mp3` ab. Unveränderte Szenen werden nicht neu erzeugt.
-
-**Test (aktiv): Piper** – kostenlos, läuft im GitHub-Runner. Verfügbare deutsche Stimmen (Katalog in `assets/stimmen.js`):
+Der Server vertont nach jedem Veröffentlichen alle Szenen mit neuem oder geändertem Text (`audio/<id>-<szene>.mp3`).
+Sprachausgabe: **Azure AI Speech** (Schlüssel in `/etc/lernnuggets.env`), alternativ Piper.
 
 | Stimme | Charakter |
 |---|---|
-| Florian, Seraphina | männlich bzw. weiblich, sehr natürlich (Azure „Multilingual“) – **nur mit Azure**; mit Piper spricht stattdessen die Standardstimme |
-| Thorsten (Standard) | männlich, klar, beste Qualität |
-| Thorsten – ruhig / freundlich / überrascht | männlich, mit Emotion |
-| Cori (Standard Englisch) | weiblich, britisches Englisch, beste Qualität, gemeinfrei |
-| Ryan | männlich, US-Englisch, beste Qualität – **nur nicht kommerziell** (CC BY-NC-SA) |
-| Alan | männlich, britisches Englisch |
+| Florian, Seraphina | männlich bzw. weiblich, sehr natürlich (Azure „Multilingual“), nur mit Azure |
+| Thorsten (Standard) → Azure: Conrad | männlich, klar |
+| Thorsten – ruhig / freundlich / überrascht | Piper mit Emotion; unter Azure ebenfalls Conrad |
+| Cori (Standard Englisch) → Azure: Sonia | weiblich, britisches Englisch |
+| Ryan → Azure: Guy | männlich, US-Englisch |
+| Alan → Azure: Ryan (GB) | männlich, britisches Englisch |
 
-**Sprache pro Lernnugget:** Im Studio unter „Allgemein“ Deutsch oder Englisch wählen. Die Stimmenauswahl zeigt dann nur
-passende Stimmen; unter „⚙ Einstellungen“ gibt es je Sprache eine Standard-Stimme. Englische Lernnuggets tragen auf der
-Kachel ein „EN“, die MP4-Untertitelspur heißt dann „English“. Die Bedienoberfläche bleibt deutsch.
+Stimme und Sprache (Deutsch/Englisch) werden pro Lernnugget gewählt, die Stimme zusätzlich pro Szene. Im Studio gibt es zu
+jeder Stimme eine Hörprobe. Für die Aussprache kann pro Szene ein abweichender Sprechtext gesetzt werden
+(z. B. „eins, eins, zwei“ statt „112“).
 
-Die Stimme wird wie der Hintergrund auf drei Ebenen gewählt: **Standard** (Studio → Einstellungen) → **Lernnugget** → **Szene**.
-Im Studio gibt es zu jeder Stimme eine **Hörprobe** und die Lizenz laut Model Card. Lizenzen unterscheiden sich je Stimme –
-vor produktivem Einsatz prüfen. Benötigte Stimmen lädt der Workflow automatisch; nur Szenen mit geänderter Stimme oder
-geändertem Text werden neu vertont.
+## MP4-Downloads
+Pro Lernnugget ein Video (1920×1080, H.264/AAC) mit denselben Grafiken, Animationen, Hintergründen und Sprechern wie im Player.
+Untertitel als zuschaltbare Spur und zusätzlich als `.srt`.
 
-**Ziel: Azure AI Speech** (nach Freigabe durch IT/Datenschutz):
-1. Im Azure-Portal eine Speech-Ressource in der Region **Germany West Central** anlegen, Schlüssel kopieren.
-2. Im Repository: **Settings → Secrets and variables → Actions**
-   - Reiter *Secrets*: `AZURE_SPEECH_KEY` = Schlüssel
-   - Reiter *Variables*: `TTS_ENGINE` = `azure` (optional `AZURE_SPEECH_REGION`)
-   - Jede Katalog-Stimme hat eine passende Azure-Stimme (Feld `azure` in `assets/stimmen.js`, z. B. Thorsten → Conrad, Ryan → Guy, Cori → Sonia).
-     Das Studio zeigt unter Azure diese echten Namen an.
-3. **Actions → Veröffentlichen → Run workflow**, Engine „azure“, Haken bei „Alle Szenen neu vertonen“.
-
-Für die Aussprache kann im Studio pro Szene ein abweichender Sprechtext gesetzt werden (z. B. „eins, eins, zwei“).
-Ohne Audiodatei nutzt der Player eine lokal installierte Windows-Stimme als Vorschau oder zeigt nur Untertitel.
-
-## Datenschutz im Überblick
-- Lernplattform: keine Anmeldung, kein Tracking, keine Cookies, keine externen Schriften/CDNs (Content-Security-Policy).
-- Studio: Videos werden nur lokal im Browser geladen; einzige externe Abfrage ist die öffentliche GitHub-API,
-  um die Dateinamen im Ordner `media/` aufzulisten. Entwürfe liegen nur im Browser (localStorage).
-- Sprecher-Erzeugung: Piper läuft auf GitHub-Servern; Azure verarbeitet die Sprechertexte in der gewählten EU-Region.
-  Sprechertexte enthalten keine personenbezogenen Daten.
+## Datenschutz
+- Keine externen Schriften, CDNs oder Tracking (Content-Security-Policy); einziges Cookie ist die Anmeldung.
+- Azure verarbeitet nur die Sprechertexte in der gewählten EU-Region; Sprechertexte enthalten keine personenbezogenen Daten.
+- Echte NETINERA-Inhalte oder Konten von Kolleginnen und Kollegen nur nach Freigabe durch IT und Datenschutz.
 
 ## Ordner
 | Pfad | Inhalt |
 |---|---|
-| `data/inhalte.js` | alle Inhalte (wird vom Studio erzeugt) |
-| `media/` | Grafiken, Hintergrundbilder, ggf. Videos |
-| `downloads/` | MP4- und SRT-Dateien (werden automatisch erzeugt, nicht im Repository) |
-| `audio/` | Sprecherdateien (automatisch) |
-| `assets/` | Gestaltung und Logik; CI-Farben oben in `style.css` |
-| `tools/tts.py` | Sprecher-Skript (wird vom Workflow aufgerufen) |
-| `assets/stimmen.js` | Stimmenkatalog (Name, Beschreibung, Piper-Modell, Azure-Gegenstück) |
-| `audio/stimmen/` | Hörproben je Stimme (automatisch) |
-| `tools/video.py` | baut die MP4-Downloads (wird vom Workflow aufgerufen) |
-| `assets/platzhalter/` | Platzhalter-Icons als SVG (für den Videobau) |
-| `.github/workflows/veroeffentlichen.yml` | Sprecher erzeugen + Seite veröffentlichen |
-| `server/` | eigener Server: `server.js` (Konten, Studio-API, Auslieferung), `install.sh`, systemd-Dienst, Caddy-Block |
-| `anmelden.html`, `konto.html`, `verwaltung.html` | Anmeldung, eigenes Konto, Kontoverwaltung (nur auf dem Server) |
+| `server/` | Server (`server.js`), Installation (`install.sh`), systemd-Dienst, Caddy-Block, Anleitung |
+| `index.html`, `studio.html` | Lernplattform, Studio |
+| `anmelden.html`, `konto.html`, `verwaltung.html` | Anmeldung, eigenes Konto, Kontoverwaltung |
+| `assets/` | Gestaltung und Logik; CI-Farben oben in `style.css`; Stimmenkatalog `stimmen.js` |
+| `tools/tts.py`, `tools/video.py` | Vertonung und MP4-Bau (ruft der Server auf) |
+| `data/`, `media/`, `audio/` | Startinhalte; auf dem Server liegen die aktuellen Daten in `/var/lib/lernnuggets` |

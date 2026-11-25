@@ -191,3 +191,14 @@ dialog::backdrop { background: rgba(30, 42, 56, .55); }
 .auftrag-st.bad { color: var(--bad); }
 .auftrag-log summary { cursor: pointer; font-size: 13px; color: var(--ink-2); }
 .auftrag-log pre { max-height: 220px; overflow: auto; background: var(--soft); border: 1px solid var(--line); padding: 8px 10px; font: 12px/1.45 ui-monospace, Consolas, monospace; margin: 6px 0 0; white-space: pre-wrap; }
+
+/* ---------- Freigabe (Lernnuggets von Anwendern) ---------- */
+.freigabe { display: flex; align-items: center; justify-content: space-between; gap: 16px 24px; flex-wrap: wrap;
+  padding: 16px clamp(18px, 2.6vw, 34px); background: var(--warn-bg); border-left: 4px solid #c58a00; }
+.freigabe.ist-eingereicht { background: var(--ok-bg); border-left-color: var(--ok); }
+.freigabe strong { font-size: 15px; font-weight: 600; }
+.freigabe p { margin: 2px 0 0; font-size: 14px; color: var(--ink-2); max-width: 62ch; }
+.leer-start p { max-width: 62ch; margin: 0 0 14px; }
+.frei-liste { width: 100%; border-collapse: collapse; font-size: 14px; }
+.frei-liste td { padding: 8px 6px; border-bottom: 1px solid var(--line); }
+.frei-liste td:first-child { font-weight: 600; }

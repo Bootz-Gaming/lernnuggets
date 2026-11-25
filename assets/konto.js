@@ -10,8 +10,8 @@
   const ROLLEN = { admin: 'Admin', support: 'Support', anwender: 'Anwender' };
   const ROLLEN_TEXT = {
     admin: 'Alles, auch Veröffentlichen und Admin-Konten',
-    support: 'Anwender betreuen, Inhalte im Studio bearbeiten',
-    anwender: 'Lernnuggets ansehen'
+    support: 'Anwender betreuen, alle Inhalte im Studio bearbeiten',
+    anwender: 'Eigene Lernnuggets erstellen und zur Freigabe einreichen'
   };
   const datum = iso => iso ? new Date(iso).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }) : 'noch nie';
 
@@ -95,7 +95,7 @@
   if (seite !== 'verwaltung') return;
   const ADMIN = K.rolle === 'admin';
   $('#untertitel').textContent = ADMIN
-    ? 'Als Admin verwalten Sie alle Konten. Support betreut Anwender und bearbeitet Inhalte, Anwender sehen die Lernnuggets.'
+    ? 'Anwender erstellen eigene Lernnuggets und reichen sie ein, Support betreut die Anwender und bearbeitet alle Inhalte, Admins geben frei und veröffentlichen.'
     : 'Als Support legen Sie Anwender-Konten an, sperren sie oder setzen Passwörter zurück.';
   const erlaubteRollen = ADMIN ? ['anwender', 'support', 'admin'] : ['anwender'];
   $('#neu-rolle').innerHTML = erlaubteRollen.map(r => `<option value="${r}">${ROLLEN[r]}</option>`).join('');
@@ -199,7 +199,7 @@
     'anmeldung': 'Angemeldet', 'anmeldung-fehlgeschlagen': 'Anmeldung fehlgeschlagen', 'abmeldung': 'Abgemeldet',
     'passwort-geaendert': 'Eigenes Passwort geändert', 'passwort-zurueckgesetzt': 'Passwort zurückgesetzt',
     'konto-angelegt': 'Konto angelegt', 'konto-geaendert': 'Konto geändert', 'konto-geloescht': 'Konto gelöscht',
-    'entwurf-begonnen': 'Studio-Entwurf begonnen', 'entwurf-verworfen': 'Studio-Entwurf verworfen', 'veroeffentlicht': 'Veröffentlicht',
+    'entwurf-begonnen': 'Studio-Entwurf begonnen', 'eingereicht': 'Zur Freigabe eingereicht', 'entwurf-verworfen': 'Studio-Entwurf verworfen', 'veroeffentlicht': 'Veröffentlicht',
     'neu-vertonen': 'Neu vertont', 'medium-hochgeladen': 'Datei hochgeladen', 'medium-geloescht': 'Datei gelöscht'
   };
   function details(z) {
@@ -210,8 +210,8 @@
       if (d.vorher.gesperrt !== d.nachher.gesperrt) t.push(d.nachher.gesperrt ? 'gesperrt' : 'entsperrt');
       return `${d.benutzer}${t.length ? ': ' + t.join(', ') : ''}`;
     }
-    if (z.aktion === 'veroeffentlicht') return `${d.nuggets} Lernnuggets${d.oeffentlich && d.oeffentlich.length ? `, öffentlich: ${d.oeffentlich.join(', ')}` : ''}`;
-    return [d.benutzer, d.rolle && ROLLEN[d.rolle], d.name, d.alles ? 'alle Szenen' : ''].filter(Boolean).join(', ');
+    if (z.aktion === 'veroeffentlicht') return `${d.nuggets} Lernnuggets${d.freigegeben && d.freigegeben.length ? `, freigegeben: ${d.freigegeben.join(', ')}` : ''}${d.oeffentlich && d.oeffentlich.length ? `, öffentlich: ${d.oeffentlich.join(', ')}` : ''}`;
+    return [d.benutzer, d.rolle && ROLLEN[d.rolle], d.name, d.titel, d.alles ? 'alle Szenen' : ''].filter(Boolean).join(', ');
   }
   async function ladeProtokoll() {
     try {

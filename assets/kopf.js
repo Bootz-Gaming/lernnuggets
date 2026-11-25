@@ -21,7 +21,8 @@
 
   const hier = location.pathname.replace(/\.html$/, '').replace(/\/$/, '') || '/';
   const links = [['/', 'Übersicht']];
-  if (K.darf_bearbeiten) links.push(['/studio', 'Studio'], ['/verwaltung', 'Konten']);
+  if (K.darf_studio) links.push(['/studio', 'Studio']);
+  if (K.darf_bearbeiten) links.push(['/verwaltung', 'Konten']);
   nav.innerHTML = links.map(([href, t]) => `<a href="${href}"${hier === href ? ' aria-current="page"' : ''}>${t}</a>`).join('');
 
   const box = document.createElement('div');

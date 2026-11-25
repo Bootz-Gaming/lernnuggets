@@ -4,11 +4,12 @@
  *
  * - Nur Node.js (ab 20), keine npm-Pakete: http, crypto (scrypt), fs, child_process
  * - Konten mit drei Rollen:
- *     admin    – alles: Konten aller Rollen, Inhalte bearbeiten, veröffentlichen, Protokoll
- *     support  – Anwender-Konten betreuen (anlegen, sperren, Passwort zurücksetzen), Inhalte bearbeiten
- *     anwender – Lernnuggets ansehen
+ *     admin    – alles: Konten aller Rollen, alle Inhalte bearbeiten, veröffentlichen (freigeben), Protokoll
+ *     support  – Anwender-Konten betreuen (anlegen, sperren, Passwort zurücksetzen), alle Inhalte bearbeiten
+ *     anwender – erstellt eigene Lernnuggets im Studio und reicht sie zur Freigabe ein; sieht alle veröffentlichten
  * - Anmeldung für alles; einzelne Lernnuggets können "öffentlich teilbar" sein (/teilen/<id>)
- * - Studio speichert einen gemeinsamen Entwurf auf dem Server; nur Admins veröffentlichen.
+ * - Studio speichert einen gemeinsamen Entwurf auf dem Server (Zusammenführung pro Lernnugget); nur Admins
+ *   veröffentlichen. Lernnuggets von Anwendern gehen erst live, wenn sie eingereicht sind.
  *   Danach laufen Vertonung (tools/tts.py) und MP4-Bau (tools/video.py) direkt auf dem Server.
  *
  * Programm: Repository-Ordner (z. B. /opt/lernnuggets/app)
@@ -234,6 +235,84 @@ function leseEntwurf() {
   const e = leseJSON(ENTWURF, null);
   return e && e.data ? e : null;
 }
+const gleich = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const kopie = o => JSON.parse(JSON.stringify(o));
+
+// Braucht dieses Lernnugget eine Freigabe? Ja, wenn es von einem Anwender stammt (oder das Konto nicht mehr existiert).
+function brauchtFreigabe(n) {
+  if (!n.besitzer) return false;
+  const k = kontoVon(n.besitzer);
+  return !k || k.rolle === 'anwender';
+}
+// Live-Fassung aus dem Entwurf: Anwender-Lernnuggets nur, wenn eingereicht – sonst bleibt die bisherige Live-Fassung
+function liveAusEntwurf(d) {
+  const alt = new Map(live.nuggets.map(n => [n.id, n]));
+  const nuggets = [];
+  d.nuggets.forEach(n => {
+    if (!brauchtFreigabe(n) || n.eingereicht) { const x = kopie(n); delete x.eingereicht; nuggets.push(x); }
+    else if (alt.has(n.id)) nuggets.push(kopie(alt.get(n.id)));
+  });
+  return Object.assign(kopie(d), { nuggets });
+}
+
+// Versionen des Entwurfs der letzten Zeit, damit gleichzeitige Änderungen zusammengeführt werden können
+const verlauf = new Map();
+function merkeVersion(v, d) {
+  verlauf.set(v, JSON.stringify(d));
+  if (verlauf.size > 80) verlauf.delete(verlauf.keys().next().value);
+}
+// Drei-Wege-Zusammenführung pro Lernnugget (sowie Einstellungen und Kategorien als Ganzes)
+function zusammenfuehren(basis, aktuell, meins) {
+  const konflikte = [];
+  const wahl = (b, a, m, name) => {
+    if (gleich(m, b)) return a;
+    if (gleich(a, b) || gleich(a, m)) return m;
+    konflikte.push(name); return m;
+  };
+  const meta = wahl(basis.meta, aktuell.meta, meins.meta, 'Einstellungen der Plattform');
+  let kategorien = wahl(basis.kategorien, aktuell.kategorien, meins.kategorien, null);
+  if (konflikte.includes(null)) {   // Kategorien: einfach vereinigen
+    konflikte.splice(konflikte.indexOf(null), 1);
+    kategorien = meins.kategorien.concat(aktuell.kategorien.filter(k => !meins.kategorien.some(x => x.id === k.id)));
+  }
+  const map = arr => new Map(arr.map(n => [n.id, n]));
+  const B = map(basis.nuggets), A = map(aktuell.nuggets), M = map(meins.nuggets);
+  const reihenfolge = [...M.keys()];
+  aktuell.nuggets.forEach((n, i) => { if (!M.has(n.id) && !B.has(n.id)) reihenfolge.splice(Math.min(i, reihenfolge.length), 0, n.id); });
+  B.forEach((n, id) => { if (!reihenfolge.includes(id)) reihenfolge.push(id); });
+  const nuggets = [];
+  reihenfolge.forEach(id => {
+    const r = wahl(B.get(id), A.get(id), M.get(id), (M.get(id) || A.get(id) || B.get(id)).titel || id);
+    if (r) nuggets.push(r);
+  });
+  return { data: Object.assign({}, meins, { meta, kategorien, nuggets }), konflikte };
+}
+// Anwender schicken nur ihre eigenen Lernnuggets; der Rest des Entwurfs bleibt unberührt
+function anwenderEinbauen(aktuell, meins, k) {
+  const fremd = new Set(aktuell.nuggets.filter(n => n.besitzer !== k.benutzer).map(n => n.id));
+  const alt = new Map(aktuell.nuggets.filter(n => n.besitzer === k.benutzer).map(n => [n.id, n]));
+  const eigene = new Map();
+  (meins.nuggets || []).forEach(n => {
+    if (!n || fremd.has(n.id) || live.nuggets.some(x => x.id === n.id && x.besitzer !== k.benutzer)) throw fehler(400, `Die ID „${n && n.id}“ ist schon vergeben. Bitte im Feld ID eine andere wählen.`);
+    const x = Object.assign({}, n, { besitzer: k.benutzer });
+    const vorher = alt.get(n.id) || live.nuggets.find(l => l.id === n.id);
+    if (vorher && vorher.oeffentlich) x.oeffentlich = true; else delete x.oeffentlich;   // Teilen entscheidet der Admin
+    eigene.set(n.id, x);
+  });
+  const nuggets = [];
+  aktuell.nuggets.forEach(n => {
+    if (n.besitzer !== k.benutzer) nuggets.push(n);
+    else if (eigene.has(n.id)) { nuggets.push(eigene.get(n.id)); eigene.delete(n.id); }
+  });
+  eigene.forEach(n => nuggets.push(n));
+  const kategorien = aktuell.kategorien.concat((meins.kategorien || []).filter(x => x && x.id && x.name && !aktuell.kategorien.some(a => a.id === x.id)));
+  return Object.assign({}, aktuell, { kategorien, nuggets });
+}
+const nurEigene = (d, k) => Object.assign({}, d, { nuggets: d.nuggets.filter(n => n.besitzer === k.benutzer) });
+// Rollen der Ersteller, damit das Studio "in Arbeit / eingereicht" anzeigen kann
+const besitzerInfo = d => Object.fromEntries([...new Set(d.nuggets.map(n => n.besitzer).filter(Boolean))].map(b => {
+  const k = kontoVon(b); return [b, { name: k ? k.name : b, freigabe: !k || k.rolle === 'anwender' }];
+}));
 
 // ---------- Vertonung und Videobau (ein Auftrag zur Zeit) ----------
 const auftrag = { laeuft: false, nochmal: false, start: null, ende: null, ok: null, log: [], alles: false, von: null };
@@ -346,7 +425,8 @@ function seite(res, name, opt) {
 }
 
 // ---------- Rechte ----------
-const darfBearbeiten = k => k && (k.rolle === 'admin' || k.rolle === 'support');
+const darfBearbeiten = k => k && (k.rolle === 'admin' || k.rolle === 'support');   // alle Inhalte, Kontoverwaltung
+const darfStudio = k => !!k;                                                       // alle Rollen erstellen Lernnuggets
 const istAdmin = k => k && k.rolle === 'admin';
 // Darf "wer" das Konto "ziel" verwalten?
 const darfVerwalten = (wer, ziel) => istAdmin(wer) || (wer && wer.rolle === 'support' && ziel.rolle === 'anwender');
@@ -457,25 +537,44 @@ async function api(req, res, url, s) {
 
   // --- Studio: Entwurf, Medien, Veröffentlichen ---
   if (p.startsWith('/api/entwurf') || p.startsWith('/api/medien') || p.startsWith('/api/auftrag') || p === '/api/veroeffentlichen') {
-    if (!darfBearbeiten(k)) throw fehler(403, 'Nur Admin und Support arbeiten im Studio.');
+    if (!darfStudio(k)) throw fehler(403, 'Kein Zugang zum Studio.');
   }
   if (p === '/api/entwurf' && m === 'GET') {
     const e = leseEntwurf();
-    return json(res, 200, e ? { data: e.data, version: e.version, von: e.von, am: e.am, basis: e.basis, liveRev }
-      : { data: live, version: 0, von: null, am: null, basis: null, liveRev });
+    const d = e ? e.data : live, version = e ? e.version : 0;
+    if (!verlauf.has(version)) merkeVersion(version, d);
+    const sicht = darfBearbeiten(k) ? d : nurEigene(d, k);
+    return json(res, 200, { data: sicht, version, von: e && e.von, am: e && e.am, liveRev, besitzer: besitzerInfo(d),
+      live: darfBearbeiten(k) ? live : nurEigene(live, k) });
   }
   if (p === '/api/entwurf' && m === 'PUT') {
     const b = await jsonBody(req);
     const e = leseEntwurf();
-    const version = e ? e.version : 0;
-    if (+b.version !== version) return json(res, 409, { fehler: `${e && e.von ? `„${e.von}“` : 'Jemand anderes'} hat den Entwurf inzwischen geändert.`, von: e && e.von, am: e && e.am, version });
-    pruefeInhalte(b.data);
-    const neu = { version: version + 1, von: k.benutzer, am: jetzt(), basis: (e && e.basis) || jetzt(), data: b.data };
-    schreibeAtomar(ENTWURF, JSON.stringify(neu));
+    const aktuell = e ? e.data : live, version = e ? e.version : 0;
+    let neu, zusammen = false;
+    if (!darfBearbeiten(k)) {
+      neu = anwenderEinbauen(aktuell, b.data || {}, k);
+    } else if (+b.version === version) {
+      neu = b.data;
+    } else {
+      const basis = verlauf.get(+b.version);
+      if (!basis) return json(res, 409, { fehler: 'Der Entwurf wurde inzwischen geändert. Bitte neu laden.' });
+      const r = zusammenfuehren(JSON.parse(basis), aktuell, b.data);
+      if (r.konflikte.length) return json(res, 409, { fehler: `Gleichzeitig von ${e && e.von ? `„${e.von}“` : 'jemand anderem'} geändert: ${r.konflikte.join(', ')}. Bitte neu laden.` });
+      neu = r.data; zusammen = true;
+    }
+    pruefeInhalte(neu);
+    const n = { version: version + 1, von: k.benutzer, am: jetzt(), data: neu };
+    schreibeAtomar(ENTWURF, JSON.stringify(n));
+    merkeVersion(n.version, neu);
     if (!e) protokoll(req, k, 'entwurf-begonnen');
-    return json(res, 200, { version: neu.version, am: neu.am });
+    const eingereicht = neu.nuggets.filter(x => x.eingereicht && !(aktuell.nuggets.find(a => a.id === x.id) || {}).eingereicht);
+    eingereicht.forEach(x => protokoll(req, k, 'eingereicht', { id: x.id, titel: x.titel }));
+    const sicht = darfBearbeiten(k) ? neu : nurEigene(neu, k);
+    return json(res, 200, { version: n.version, am: n.am, data: zusammen || !darfBearbeiten(k) ? sicht : undefined, besitzer: besitzerInfo(neu) });
   }
   if (p === '/api/entwurf' && m === 'DELETE') {
+    if (!darfBearbeiten(k)) throw fehler(403, 'Nur Admin und Support können den Entwurf verwerfen.');
     try { fs.unlinkSync(ENTWURF); } catch (e) { /* schon weg */ }
     protokoll(req, k, 'entwurf-verworfen');
     return json(res, 200, { ok: true });
@@ -483,19 +582,44 @@ async function api(req, res, url, s) {
   if (p === '/api/veroeffentlichen' && m === 'POST') {
     if (!istAdmin(k)) throw fehler(403, 'Nur Admins veröffentlichen.');
     const b = await jsonBody(req);
-    const e = leseEntwurf();
-    const d = pruefeInhalte(b.data || (e && e.data));
+    let e = leseEntwurf();
+    // Letzte Änderungen aus dem Studio vorher übernehmen
+    if (b.data && b.version != null) {
+      const aktuell = e ? e.data : live, version = e ? e.version : 0;
+      let d0 = b.data;
+      if (+b.version !== version) {
+        const basis = verlauf.get(+b.version);
+        if (!basis) throw fehler(409, 'Der Entwurf wurde inzwischen geändert. Bitte neu laden.');
+        const r = zusammenfuehren(JSON.parse(basis), aktuell, b.data);
+        if (r.konflikte.length) throw fehler(409, `Gleichzeitig geändert: ${r.konflikte.join(', ')}. Bitte neu laden.`);
+        d0 = r.data;
+      }
+      e = { version: version + 1, data: pruefeInhalte(d0) };
+    }
+    const entwurf = pruefeInhalte(e ? e.data : kopie(live));
+    const d = liveAusEntwurf(entwurf);
     // Vorherige Fassung aufheben (die letzten 30)
     const archiv = D('archiv');
     fs.mkdirSync(archiv, { recursive: true });
     fs.copyFileSync(LIVE, path.join(archiv, `inhalte-${jetzt().replace(/[:.]/g, '-')}.js`));
     fs.readdirSync(archiv).sort().slice(0, -30).forEach(f => fs.unlinkSync(path.join(archiv, f)));
     schreibeAtomar(LIVE, alsJS('LERN_DATA', d));
-    try { fs.unlinkSync(ENTWURF); } catch (x) { /* kein Entwurf */ }
     ladeLive();
-    protokoll(req, k, 'veroeffentlicht', { nuggets: d.nuggets.length, oeffentlich: d.nuggets.filter(n => n.oeffentlich).map(n => n.id) });
+    // Was noch nicht live gehen durfte (Anwender-Lernnuggets in Arbeit), bleibt im Entwurf
+    const rest = kopie(entwurf);
+    rest.nuggets.forEach(n => { delete n.eingereicht; });
+    const zurueck = entwurf.nuggets.filter(n => brauchtFreigabe(n) && !n.eingereicht).map(n => n.titel || n.id);
+    let neuerEntwurf = null;
+    if (gleich(rest, d)) { try { fs.unlinkSync(ENTWURF); } catch (x) { /* kein Entwurf */ } merkeVersion(0, d); }
+    else {
+      neuerEntwurf = { version: (e ? e.version : 0) + 1, von: k.benutzer, am: jetzt(), data: rest };
+      schreibeAtomar(ENTWURF, JSON.stringify(neuerEntwurf)); merkeVersion(neuerEntwurf.version, rest);
+    }
+    const freigegeben = entwurf.nuggets.filter(n => brauchtFreigabe(n) && n.eingereicht).map(n => n.id);
+    protokoll(req, k, 'veroeffentlicht', { nuggets: d.nuggets.length, oeffentlich: d.nuggets.filter(n => n.oeffentlich).map(n => n.id), freigegeben });
     starteAuftrag(k.benutzer, false);
-    return json(res, 200, { ok: true, liveRev });
+    return json(res, 200, { ok: true, liveRev, live: d, zurueckgehalten: zurueck,
+      entwurf: neuerEntwurf ? { data: neuerEntwurf.data, version: neuerEntwurf.version } : { data: d, version: 0 }, besitzer: besitzerInfo(rest) });
   }
   if (p === '/api/auftrag' && m === 'GET') return json(res, 200, Object.assign({}, auftrag, { log: auftrag.log.slice(-80), engine: CFG.engine }));
   if (p === '/api/auftrag' && m === 'POST') {
@@ -567,7 +691,7 @@ async function anfrage(req, res) {
   if (p === '/anmelden' || p === '/anmelden.html') return bereit && !url.searchParams.has('neu') ? weiter(res, '/') : seite(res, 'anmelden.html');
   if (p.startsWith('/assets/')) return datei(req, res, path.join(APP, 'assets'), p.slice(8));
   if (p === '/konto.js') {
-    const info = k ? Object.assign(oeffentlichesKonto(k), { rollenname: ROLLENNAME[k.rolle], darf_bearbeiten: darfBearbeiten(k), admin: istAdmin(k) }) : null;
+    const info = k ? Object.assign(oeffentlichesKonto(k), { rollenname: ROLLENNAME[k.rolle], darf_bearbeiten: darfBearbeiten(k), darf_studio: darfStudio(k), admin: istAdmin(k) }) : null;
     return senden(res, 200, `window.LERN_KONTO = ${JSON.stringify(info)};\n`, 'text/javascript; charset=utf-8');
   }
   const t = /^\/teilen\/([\w-]+)\/?$/.exec(p);
@@ -605,7 +729,7 @@ async function anfrage(req, res) {
   if (k.muss_aendern) return weiter(res, '/anmelden?neu');
   if (p === '/' || p === '/index.html') return seite(res, 'index.html', { k: 1 });
   if (p === '/konto' || p === '/konto.html') return seite(res, 'konto.html', { k: 1 });
-  if (p === '/studio' || p === '/studio.html') return darfBearbeiten(k) ? seite(res, 'studio.html', { k: 1 }) : weiter(res, '/');
+  if (p === '/studio' || p === '/studio.html') return darfStudio(k) ? seite(res, 'studio.html', { k: 1 }) : weiter(res, '/');
   if (p === '/verwaltung' || p === '/verwaltung.html') return darfBearbeiten(k) ? seite(res, 'verwaltung.html', { k: 1 }) : weiter(res, '/');
   return senden(res, 404, 'Nicht gefunden');
 }
