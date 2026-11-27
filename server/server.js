@@ -207,6 +207,7 @@ function freieDateien() {
     n.szenen.forEach((sc, i) => {
       if (sc.grafik) set.add(String(sc.grafik));
       if (sc.video) set.add(String(sc.video));
+      (sc.weitere || []).forEach(e => { if (e && e.grafik) set.add(String(e.grafik)); });
       bg(sc.hintergrund);
       set.add(`audio/${n.id}-${i + 1}.mp3`);
     });
@@ -227,6 +228,10 @@ function pruefeInhalte(d) {
     if (!Array.isArray(n.szenen) || !n.szenen.length) throw fehler(400, `„${n.titel || n.id}“ hat keine Szenen.`);
     n.szenen.forEach(sc => {
       for (const f of ['grafik', 'video']) if (sc[f] != null && !/^(media|assets)\/[\w.\-/]+$/.test(String(sc[f])) ) throw fehler(400, `Ungültiger Dateipfad: ${sc[f]}`);
+      if (sc.weitere != null) {
+        if (!Array.isArray(sc.weitere) || sc.weitere.length > 3) throw fehler(400, 'Höchstens 3 weitere Grafiken pro Szene.');
+        sc.weitere.forEach(e => { if (!e || (e.grafik != null && !/^(media|assets)\/[\w.\-/]+$/.test(String(e.grafik)))) throw fehler(400, `Ungültiger Dateipfad: ${e && e.grafik}`); });
+      }
     });
   });
   return d;

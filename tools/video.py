@@ -192,33 +192,85 @@ def with_alpha(im, a):
     return Image.merge("RGBA", (r, g, b, al))
 
 
-def render_frames(bgimg, graphic, anim, word, frames, box_y=None, box_h=None):
-    """Liefert die animierten Frames (RGB-Bytes) für den Szenenanfang."""
-    dur, _ = ANIM.get(anim, ANIM["fade"])
-    ease = EASE.get(anim, EASE["fade"])
-    gx0 = (W - graphic.width) // 2
-    box_y = BOX_Y if box_y is None else box_y
-    box_h = BOX[1] if box_h is None else box_h
-    gy0 = box_y + (box_h - graphic.height) // 2
+def place(graphic, anim, e, gx0, gy0):
+    """Lage und Größe einer Grafik bei Animationsfortschritt e (0…1), wie die CSS-Animationen."""
+    g, x, y = graphic, gx0, gy0
+    if anim == "slide-left": x = gx0 - 0.6 * graphic.width * (1 - e)
+    elif anim == "slide-right": x = gx0 + 0.6 * graphic.width * (1 - e)
+    elif anim == "slide-up": y = gy0 + 0.4 * graphic.height * (1 - e)
+    elif anim in ("pop", "zoom"):
+        s = (0.2 + 0.8 * e) if anim == "pop" else (0.85 + 0.15 * e)
+        s = max(0.01, s)
+        g = graphic.resize((max(1, round(graphic.width * s)), max(1, round(graphic.height * s))), Image.BILINEAR)
+        x = gx0 + (graphic.width - g.width) / 2; y = gy0 + (graphic.height - g.height) / 2
+    return g, x, y
+
+
+def render_frames(bgimg, items, word, frames):
+    """Liefert die animierten Frames (RGB-Bytes). items: [(grafik, animation, start_s, x, y)]."""
     for i in range(frames):
         t = i / FPS
-        e = ease(min(1.0, t / dur))
-        op = max(0.0, min(1.0, e))
         frame = bgimg.copy().convert("RGBA")
-        g, x, y = graphic, gx0, gy0
-        if anim == "slide-left": x = gx0 - 0.6 * graphic.width * (1 - e)
-        elif anim == "slide-right": x = gx0 + 0.6 * graphic.width * (1 - e)
-        elif anim == "slide-up": y = gy0 + 0.4 * graphic.height * (1 - e)
-        elif anim in ("pop", "zoom"):
-            s = (0.2 + 0.8 * e) if anim == "pop" else (0.85 + 0.15 * e)
-            s = max(0.01, s)
-            g = graphic.resize((max(1, round(graphic.width * s)), max(1, round(graphic.height * s))), Image.BILINEAR)
-            x = gx0 + (graphic.width - g.width) / 2; y = gy0 + (graphic.height - g.height) / 2
-        frame.alpha_composite(with_alpha(g, op), (int(round(x)), int(round(y))))
+        for graphic, anim, start, gx0, gy0 in items:
+            lt = t - start
+            if lt < 0:
+                continue
+            dur, _ = ANIM.get(anim, ANIM["fade"])
+            e = EASE.get(anim, EASE["fade"])(min(1.0, lt / dur))
+            g, x, y = place(graphic, anim, e, gx0, gy0)
+            frame.alpha_composite(with_alpha(g, max(0.0, min(1.0, e))), (int(round(x)), int(round(y))))
         we = EASE_WORD(min(1.0, max(0.0, (t - WORD_DELAY) / WORD_DUR)))
         if we > 0:
             frame.alpha_composite(with_alpha(word, we).transform(word.size, Image.AFFINE, (1, 0, 0, 0, 1, -28 * (1 - we))))
         yield frame.convert("RGB").tobytes()
+
+
+# ---------- Weitere Grafiken pro Szene (wie assets/szene.js) ----------
+MAX_WEITERE = 3
+
+
+def weitere(sc):
+    if sc.get("video") or (sc.get("grafik") and sc.get("darstellung") == "vollbild"):
+        return []
+    return [e for e in (sc.get("weitere") or []) if isinstance(e, dict)][:MAX_WEITERE]
+
+
+def fundstelle(wort, sc, ab=0.0):
+    wort = str(wort or "").strip().lower()
+    if not wort:
+        return None
+    for t in (sc.get("sprechtext"), sc.get("text")):
+        low = str(t or "").lower()
+        if not low:
+            continue
+        i = low.find(wort, int(round(ab * len(low))))
+        if i < 0:
+            i = low.find(wort)
+        if i >= 0:
+            return min(0.97, i / len(low))
+    return None
+
+
+def zeitpunkte(sc):
+    w, ab, out = weitere(sc), 0.0, []
+    for k, e in enumerate(w):
+        f = fundstelle(e.get("bei"), sc, ab)
+        if f is None:
+            out.append((k + 1) / (len(w) + 1))
+        else:
+            ab = f; out.append(f)
+    return out
+
+
+def grafik_pfad(el):
+    g = el.get("grafik")
+    p = datei(g) if g else None
+    if p and p.exists():
+        return p, False
+    if g:
+        print(f"    Hinweis: Grafik {g} fehlt – nutze Platzhalter")
+    icon = ROOT / "assets" / "platzhalter" / f"{el.get('icon') or 'report'}.svg"
+    return (icon if icon.exists() else ROOT / "assets" / "platzhalter" / "report.svg"), True
 
 
 def audio_input(audio, dur):
@@ -271,17 +323,39 @@ def build_scene(meta, n, k, sc, audio, tmp, bgcache):
     if vollbild:
         box = (W, H)
         word = Image.new("RGBA", (W, H), (0, 0, 0, 0))   # Titel steckt in der Grafik
-    graphic = load_image(gpath, box, accent=accent)
-    dur = max(base, float(sc.get("mindestdauer") or 0), ANIM_FRAMES / FPS + 0.2)
+    frames = ANIM_FRAMES
+    w = [] if vollbild else weitere(sc)
+    if w:
+        # Mehrere Grafiken nebeneinander; jede erscheint, wenn ihr Wort gesprochen wird
+        els = [{"grafik": sc.get("grafik"), "icon": sc.get("icon"), "animation": sc.get("animation")}] + w
+        n_el = len(els)
+        area = int(W * 0.81); gap = int(area * 0.04)
+        slot_w = (area - gap * (n_el - 1)) // n_el
+        left = (W - area) // 2
+        sprech = a_dur if a_dur else max(1.0, base - 0.4)
+        starts = [0.0] + [z * sprech for z in zeitpunkte(sc)]
+        items = []
+        for k, el in enumerate(els):
+            p, platzhalter = grafik_pfad(el)
+            b = (int(slot_w * 0.86), int(BOX[1] * 0.86)) if platzhalter else (slot_w, BOX[1])
+            g = load_image(p, b, accent=accent)
+            gx = left + k * (slot_w + gap) + (slot_w - g.width) // 2
+            gy = BOX_Y + (BOX[1] - g.height) // 2
+            items.append((g, el.get("animation") or "fade", starts[k], gx, gy))
+        frames = max(ANIM_FRAMES, int(math.ceil((max(starts) + 1.05) * FPS)) + 1)
+    else:
+        graphic = load_image(gpath, box, accent=accent)
+        box_y, box_h = (0, H) if vollbild else (BOX_Y, BOX[1])
+        items = [(graphic, sc.get("animation") or "fade", 0.0, (W - graphic.width) // 2, box_y + (box_h - graphic.height) // 2)]
+    dur = max(base, float(sc.get("mindestdauer") or 0), frames / FPS + 0.2)
     ain, afil = audio_input(audio, dur)
-    hold = max(0.0, dur - ANIM_FRAMES / FPS + 0.1)
+    hold = max(0.0, dur - frames / FPS + 0.1)
     fc = f"[0:v]tpad=stop_mode=clone:stop_duration={hold:.3f},format=yuv420p[v];{afil}"
     cmd = ["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}",
            "-r", str(FPS), "-i", "-", *ain, "-filter_complex", fc, "-map", "[v]", "-map", "[a]",
            "-t", f"{dur:.3f}", *ENC, str(out)]
     p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-    for fr in render_frames(bgimg, graphic, sc.get("animation") or "fade", word, ANIM_FRAMES,
-                            box_y=0 if vollbild else None, box_h=H if vollbild else None):
+    for fr in render_frames(bgimg, items, word, frames):
         p.stdin.write(fr)
     p.stdin.close()
     err = p.stderr.read(); p.wait()
@@ -348,6 +422,8 @@ def nugget_hash(meta, n, audio_index):
         files = [sc.get("video"), sc.get("grafik"), (sc.get("hintergrund") or {}).get("bild")]
         if not sc.get("video") and not sc.get("grafik"):
             files.append(f"assets/platzhalter/{sc.get('icon') or 'report'}.svg")
+        for e in weitere(sc):
+            files.append(e.get("grafik") or f"assets/platzhalter/{e.get('icon') or 'report'}.svg")
         for f in files:
             p = datei(f) if f else None
             if p and p.exists(): h.update(hashlib.sha1(p.read_bytes()).digest())

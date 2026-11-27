@@ -383,3 +383,14 @@ details.transcript li strong { display: block; }
 .tabelle tr.warnzeile td { background: var(--bad-bg); }
 .ctrl.gefahr { color: var(--bad); }
 .status.gesperrt { background: var(--bad-bg); color: var(--bad); }
+
+/* ---------- Mehrere Grafiken pro Szene ---------- */
+.stage-visual:has(.multi) { width: 92%; height: 100%; min-height: 0; }
+.multi { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4%; width: 100%; height: 100%; align-items: center; }
+.multi .slot { min-width: 0; height: 100%; display: grid; place-items: center; }
+.multi .slot.wartet { visibility: hidden; }
+.multi .slot > div { width: 100%; height: 100%; display: grid; place-items: center; min-height: 0; }
+.multi .slot svg { width: 86%; height: auto; max-height: 100%; }
+.stage-visual .multi .scene-grafik, .multi .scene-grafik { width: 100%; height: 100%; max-height: 100%; object-fit: contain; }
+.card-thumb .multi { width: 88%; height: 78%; }
+.card-thumb .multi .grafik-wrap { width: 100%; height: 100%; }

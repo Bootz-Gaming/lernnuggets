@@ -298,7 +298,10 @@
     const bgs = [d.meta.hintergrund];
     d.nuggets.forEach(n => {
       bgs.push(n.hintergrund);
-      n.szenen.forEach(sc => { if (sc.video) out.add(sc.video); if (sc.grafik) out.add(sc.grafik); bgs.push(sc.hintergrund); });
+      n.szenen.forEach(sc => {
+        if (sc.video) out.add(sc.video); if (sc.grafik) out.add(sc.grafik); bgs.push(sc.hintergrund);
+        (sc.weitere || []).forEach(e => { if (e.grafik) out.add(e.grafik); });
+      });
     });
     bgs.forEach(b => { if (b && b.bild) out.add(b.bild); });
     return out;
@@ -537,6 +540,33 @@
     if (bild) bild.addEventListener('change', () => { set(Object.assign({}, get() || {}, { bild: bild.value })); onChange(false); });
   }
 
+  // Weitere Grafiken einer Szene (erscheinen nacheinander, passend zum gesprochenen Wort)
+  function weitereHTML(sc, iconOpts, animOpts) {
+    const w = sc.weitere || [];
+    const inhalt = e => {
+      const g = images();
+      const sel = e.grafik ? fileOf(e.grafik) : null;
+      const fehlt = e.grafik && !lib.has(sel) ? `<option value="g:${esc(e.grafik)}" selected>${esc(sel)} (nicht gefunden)</option>` : '';
+      return `${fehlt}<optgroup label="Platzhalter-Icons">${Object.keys(ICONS).map(k => `<option value="i:${k}" ${!e.grafik && (e.icon || 'report') === k ? 'selected' : ''}>${k}</option>`).join('')}</optgroup>`
+        + (g.length ? `<optgroup label="Grafiken">${g.map(x => `<option value="g:media/${esc(x.name)}" ${x.name === sel ? 'selected' : ''} ${x.ok === false ? 'disabled' : ''}>${esc(x.name)}</option>`).join('')}</optgroup>` : '');
+    };
+    const zeiten = SZ.zeitpunkte(sc);
+    return `<div class="field weitere"><span>Weitere Grafiken <em class="hint">bis zu ${SZ.MAX_WEITERE}, erscheinen nacheinander neben der ersten</em></span>
+      ${w.map((e, j) => {
+        const nicht = e.bei && SZ.fundstelle(e.bei, sc) == null;
+        return `<div class="weitere-row" data-w="${j}">
+          <span class="w-nr" aria-hidden="true">${j + 2}</span>
+          <select data-wf="inhalt" aria-label="Grafik ${j + 2}">${inhalt(e)}</select>
+          <select data-wf="animation" aria-label="Animation von Grafik ${j + 2}">${animOpts(e.animation)}</select>
+          <input data-wf="bei" value="${esc(e.bei)}" placeholder="erscheint bei Wort …" aria-label="Grafik ${j + 2} erscheint, wenn dieses Wort gesprochen wird" ${nicht ? 'class="invalid"' : ''}>
+          <button type="button" class="ctrl icon-btn" data-wdel title="Grafik entfernen" aria-label="Grafik ${j + 2} entfernen">${ICO.x}</button>
+          <span class="w-info">${nicht ? `„${esc(e.bei)}“ kommt im Sprechertext nicht vor, erscheint deshalb automatisch` : e.bei ? `erscheint bei etwa ${Math.round(zeiten[j] * 100)} % des Sprechertexts` : 'ohne Wort: gleichmäßig verteilt'}</span>
+        </div>`;
+      }).join('')}
+      ${w.length < SZ.MAX_WEITERE ? '<div><button type="button" class="ctrl" data-wadd>Grafik hinzufügen</button></div>' : ''}
+    </div>`;
+  }
+
   // Mini-Bühne wie im Player: Hintergrund + Bildinhalt + Stichwort
   function stagePreview(n, sc) {
     const bg = SZ.hintergrund(data.meta, n, sc);
@@ -548,7 +578,8 @@
     } else {
       inner = `<div class="mini-visual">${SZ.visualHTML(sc, ICONS, { urlFn: urlOf })}</div>`;
     }
-    return `<div class="mini-stage${SZ.vollbild(sc) ? ' vollbild' : ''}" data-ton="${SZ.ton(bg)}" style="${SZ.bgStyle(bg, urlOf)}" title="Klicken zum Abspielen">
+    const zeiten = SZ.zeitpunkte(sc);
+    return `<div class="mini-stage${SZ.vollbild(sc) ? ' vollbild' : ''}" data-ton="${SZ.ton(bg)}" style="${SZ.bgStyle(bg, urlOf)}" title="Klicken zum Abspielen"${zeiten.length ? ` data-zeiten="${zeiten.map(z => z.toFixed(3)).join(',')}" data-sek="${Math.min(6, Math.max(2.5, String(sc.sprechtext || sc.text || '').length / 14))}"` : ''}>
       ${inner}${sc.stichwort ? `<div class="mini-word">${esc(sc.stichwort)}</div>` : ''}</div>`;
   }
 
@@ -657,7 +688,8 @@
               ${sc.grafik ? `<label class="field"><span>Darstellung</span><select data-sf="darstellung">
                 <option value="" ${sc.darstellung !== 'vollbild' ? 'selected' : ''}>Grafik mittig, mit Stichwort</option>
                 <option value="vollbild" ${sc.darstellung === 'vollbild' ? 'selected' : ''}>Vollbild (fertige Erklärgrafik mit eigenem Titel)</option></select></label>`
-                : `<label class="field"><span>Platzhalter-Icon</span><select data-sf="icon">${iconOpts(sc.icon)}</select></label>`}`}
+                : `<label class="field"><span>Platzhalter-Icon</span><select data-sf="icon">${iconOpts(sc.icon)}</select></label>`}
+              ${SZ.vollbild(sc) ? '' : weitereHTML(sc, iconOpts, animOpts)}`}
               <label class="field"><span>Stichwort auf der Bühne</span><input data-sf="stichwort" value="${esc(sc.stichwort)}"></label>
               <label class="field"><span>Sprechertext / Untertitel</span><textarea data-sf="text" rows="3">${esc(sc.text)}</textarea></label>
               <label class="field"><span>Aussprache <em class="hint">optional, z. B. „eins, eins, zwei“ statt „112“</em></span><input data-sf="sprechtext" value="${esc(sc.sprechtext)}"></label>
@@ -811,6 +843,22 @@
       st.addEventListener('click', () => {
         const v = st.querySelector('video');
         if (v) { v.currentTime = 0; v.play().catch(() => {}); v.onended = () => endFrame(v); return; }
+        const multi = st.querySelector('.multi');
+        if (multi) {
+          // Abfolge wie im Player: erste Grafik sofort, weitere zu ihren Zeitpunkten (verkürzt)
+          clearTimeout(st._t1); (st._ts || []).forEach(clearTimeout);
+          const zeiten = (st.dataset.zeiten || '').split(',').filter(Boolean).map(Number), sek = +st.dataset.sek || 3;
+          multi.querySelectorAll('.slot').forEach((slot, k) => {
+            const inner = slot.firstElementChild;
+            if (inner && slot.dataset.anim) inner.classList.remove(slot.dataset.anim);
+            if (k > 0) slot.classList.add('wartet');
+          });
+          void multi.offsetWidth;
+          const erste = multi.querySelector('.slot[data-e="0"]');
+          if (erste && erste.firstElementChild && erste.dataset.anim) erste.firstElementChild.classList.add(erste.dataset.anim);
+          st._ts = zeiten.map((z, k) => setTimeout(() => SZ.zeigeElement(multi, k + 1), z * sek * 1000));
+          return;
+        }
         const a = st.querySelector('.mini-visual > div');
         if (a) { const c = a.className; a.className = ''; void a.offsetWidth; a.className = c; }
       });
@@ -895,10 +943,38 @@
         }
         if (f === 'mindestdauer') { const v = parseFloat(inp.value); if (v > 0) sc.mindestdauer = v; else delete sc.mindestdauer; return save(); }
         sc[f] = inp.value;
-        if (['icon', 'animation', 'stichwort', 'darstellung'].includes(f)) refresh();
+        if (f === 'darstellung') { save(); return renderEditor(); }
+        if ((f === 'text' || f === 'sprechtext') && sc.weitere) { el.querySelectorAll('.weitere-row [data-wf="bei"]').forEach(i => i.dispatchEvent(new Event('input'))); }
+        if (['icon', 'animation', 'stichwort'].includes(f)) refresh();
         save();
       }));
       bindVoice(el.querySelector(`[data-voice="s${k}"]`), () => sc.stimme, v => { if (v) sc.stimme = v; else delete sc.stimme; }, () => stimmeVon(n, null));
+      // Weitere Grafiken
+      const wadd = el.querySelector('[data-wadd]');
+      if (wadd) wadd.addEventListener('click', () => {
+        (sc.weitere = sc.weitere || []).push({ icon: 'report', animation: 'pop' }); save(); renderEditor();
+        const row = editor.querySelectorAll(`.scene[data-k="${k}"] .weitere-row`); if (row.length) row[row.length - 1].querySelector('select').focus();
+      });
+      el.querySelectorAll('.weitere-row').forEach(row => {
+        const e = sc.weitere[+row.dataset.w];
+        const info = () => {
+          const nicht = e.bei && SZ.fundstelle(e.bei, sc) == null;
+          row.querySelector('[data-wf="bei"]').classList.toggle('invalid', !!nicht);
+          const z = SZ.zeitpunkte(sc)[+row.dataset.w];
+          row.querySelector('.w-info').textContent = nicht ? `„${e.bei}“ kommt im Sprechertext nicht vor, erscheint deshalb automatisch`
+            : e.bei ? `erscheint bei etwa ${Math.round(z * 100)} % des Sprechertexts` : 'ohne Wort: gleichmäßig verteilt';
+        };
+        row.querySelectorAll('[data-wf]').forEach(inp => inp.addEventListener(inp.tagName === 'SELECT' ? 'change' : 'input', () => {
+          const f = inp.dataset.wf;
+          if (f === 'inhalt') { delete e.grafik; delete e.icon; if (inp.value.startsWith('g:')) e.grafik = inp.value.slice(2); else e.icon = inp.value.slice(2); }
+          else if (f === 'bei') { if (inp.value.trim()) e.bei = inp.value; else delete e.bei; info(); }
+          else e[f] = inp.value;
+          refresh(); save();
+        }));
+        row.querySelector('[data-wdel]').addEventListener('click', () => {
+          sc.weitere.splice(+row.dataset.w, 1); if (!sc.weitere.length) delete sc.weitere; save(); renderEditor();
+        });
+      });
       bindBg(el.querySelector(`[data-bg="s${k}"]`), () => sc.hintergrund, v => { if (v) sc.hintergrund = v; else delete sc.hintergrund; save(); },
         full => { if (full) renderEditor(); else refresh(); });
       el.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => {
@@ -973,6 +1049,10 @@
       n.szenen.forEach((sc, k) => {
         if (!String(sc.text || '').trim()) issues.push(`„${t}“, Szene ${k + 1}: Sprechertext fehlt.`);
         checkFile(sc.video || sc.grafik, `„${t}“, Szene ${k + 1}`);
+        SZ.weitere(sc).forEach((e, j) => {
+          checkFile(e.grafik, `„${t}“, Szene ${k + 1}, Grafik ${j + 2}`);
+          if (e.bei && SZ.fundstelle(e.bei, sc) == null) issues.push(`„${t}“, Szene ${k + 1}, Grafik ${j + 2}: Das Wort „${e.bei}“ kommt im Sprechertext nicht vor.`);
+        });
         checkFile(sc.hintergrund && sc.hintergrund.bild, `„${t}“, Szene ${k + 1}, Hintergrund`);
       });
       (n.quiz || []).forEach((q, k) => {

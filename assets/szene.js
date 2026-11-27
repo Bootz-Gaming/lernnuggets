@@ -1,6 +1,7 @@
 /*
  * Gemeinsame Szenen-Logik für Lernplattform und Studio:
- * Hintergrund (Standard → Lernnugget → Szene), Animationen, Bildinhalt.
+ * Hintergrund (Standard → Lernnugget → Szene), Animationen, Bildinhalt,
+ * weitere Grafiken pro Szene (erscheinen nacheinander, passend zum gesprochenen Wort).
  * Die gleichen Regeln setzt tools/video.py für den MP4-Export um.
  */
 (function () {
@@ -61,13 +62,61 @@
   // Vollbild: fertige Erklärgrafik füllt die ganze Bühne (Stichwort entfällt, Titel steckt in der Grafik)
   const vollbild = sc => !!(sc && sc.grafik && !sc.video && sc.darstellung === 'vollbild');
 
+  // Weitere Grafiken: sc.weitere = [{ grafik | icon, animation, bei: 'Wort' }], höchstens 3, nicht bei Video/Vollbild
+  const MAX_WEITERE = 3;
+  const weitere = sc => (sc && !sc.video && !vollbild(sc) && Array.isArray(sc.weitere)) ? sc.weitere.slice(0, MAX_WEITERE) : [];
+  // Stelle des Stichworts im Text als Anteil 0…1 (null = nicht gefunden)
+  function fundstelle(wort, sc, ab) {
+    wort = String(wort || '').trim().toLowerCase();
+    if (!wort) return null;
+    for (const t of [sc.sprechtext, sc.text]) {
+      const low = String(t || '').toLowerCase();
+      if (!low) continue;
+      let i = low.indexOf(wort, Math.round((ab || 0) * low.length));
+      if (i < 0) i = low.indexOf(wort);
+      if (i >= 0) return Math.min(0.97, i / low.length);
+    }
+    return null;
+  }
+  // Zeitpunkte der weiteren Grafiken als Anteil am Sprechertext; ohne Wort gleichmäßig verteilt
+  function zeitpunkte(sc) {
+    const w = weitere(sc);
+    let ab = 0;
+    return w.map((e, k) => {
+      const f = fundstelle(e.bei, sc, ab);
+      if (f == null) return (k + 1) / (w.length + 1);
+      ab = f; return f;
+    });
+  }
+  function einzelHTML(el, icons, urlFn, anim) {
+    if (el.grafik) return `<div class="${anim} grafik-wrap"><img class="scene-grafik" src="${esc(urlFn(el.grafik))}" alt=""></div>`;
+    return `<div class="${anim}">${icons[el.icon] || icons.report || ''}</div>`;
+  }
+  // Weitere Grafik k (1…) sichtbar machen und ihre Animation starten
+  function zeigeElement(root, k) {
+    const slot = root && root.querySelector(`.slot[data-e="${k}"]`);
+    if (!slot || !slot.classList.contains('wartet')) return;
+    slot.classList.remove('wartet');
+    const inner = slot.firstElementChild;
+    if (inner && slot.dataset.anim) inner.classList.add(slot.dataset.anim);
+  }
+
   function visualHTML(sc, icons, opts) {
     opts = opts || {};
     const urlFn = opts.urlFn || (x => x);
     const anim = opts.animieren === false ? '' : 'anim-' + (sc.animation || 'fade');
+    const w = weitere(sc);
+    if (w.length) {
+      const animVon = el => opts.animieren === false ? '' : 'anim-' + (el.animation || 'fade');
+      const alle = [{ grafik: sc.grafik, icon: sc.icon, animation: sc.animation }].concat(w);
+      return `<div class="multi n${alle.length}">${alle.map((el, k) => {
+        const wartet = k > 0 && opts.verborgen === true;
+        return `<div class="slot${wartet ? ' wartet' : ''}" data-e="${k}" data-anim="${animVon(el)}">${einzelHTML(el, icons, urlFn, wartet ? '' : animVon(el))}</div>`;
+      }).join('')}</div>`;
+    }
     if (sc.grafik) return `<div class="${anim} grafik-wrap${vollbild(sc) ? ' vollbild' : ''}"><img class="scene-grafik" src="${esc(urlFn(sc.grafik))}" alt=""></div>`;
     return `<div class="${anim}">${icons[sc.icon] || icons.report || ''}</div>`;
   }
 
-  window.LERN_SZENE = { ANIMATIONEN, STANDARD_BG, hintergrund, ton, bgStyle, art, vollbild, visualHTML, normHex, esc };
+  window.LERN_SZENE = { ANIMATIONEN, STANDARD_BG, MAX_WEITERE, hintergrund, ton, bgStyle, art, vollbild, weitere, fundstelle, zeitpunkte, zeigeElement, visualHTML, normHex, esc };
 })();

@@ -340,7 +340,7 @@
       stage.setAttribute('style', SZ.bgStyle(bg));
       stage.dataset.ton = SZ.ton(bg);
       stage.classList.toggle('vollbild', SZ.vollbild(sc));
-      this.video = null; this.vDone = true; this.vFrac = 1;
+      this.video = null; this.vDone = true; this.vFrac = 1; this.zeiten = [];
       if (sc.video) {
         // Eigene AE-Animation: Bewegung steckt im Video, daher keine zusätzliche CSS-Animation
         vis.innerHTML = `<video class="scene-video" src="${esc(sc.video)}" muted playsinline preload="auto"></video>`;
@@ -359,9 +359,14 @@
         else endFrame(v);
       } else {
         vis.classList.remove('has-video');
-        vis.innerHTML = SZ.visualHTML(sc, ICONS);
-        const img = vis.querySelector('img');
-        if (img) img.addEventListener('error', () => { vis.innerHTML = `<div class="${anim}">${icon(sc.icon)}</div>`; }, { once: true });
+        // Weitere Grafiken warten, bis der Sprecher an der passenden Stelle ist
+        vis.innerHTML = SZ.visualHTML(sc, ICONS, { verborgen: this.playing });
+        this.zeiten = (SZ.zeitpunkte ? SZ.zeitpunkte(sc) : []);
+        this.gezeigt = this.zeiten.map(() => !this.playing);
+        vis.querySelectorAll('img').forEach(img => img.addEventListener('error', () => {
+          const box = img.closest('.grafik-wrap');
+          if (box) box.outerHTML = `<div class="${box.className.replace('grafik-wrap', '').trim()}">${icon(sc.icon)}</div>`;
+        }, { once: true }));
         // Mindestdauer (z. B. 3, 5 oder 10 s): Szene läuft mindestens so lange
         if (this.playing && sc.mindestdauer > 0) {
           this.vDone = false; this.vFrac = 0;
@@ -386,7 +391,12 @@
     }
 
     // Szene endet erst, wenn Sprecher UND Animation fertig sind (Animationen 3, 5 oder 10 s)
-    setBar(frac) { this.nFrac = frac; this.paint(); }
+    setBar(frac) { this.nFrac = frac; this.paint(); this.zeige(frac); }
+    zeige(frac) {
+      if (!this.zeiten || !this.zeiten.length) return;
+      const vis = this.$('#visual');
+      this.zeiten.forEach((z, k) => { if (!this.gezeigt[k] && frac >= z - 0.01) { this.gezeigt[k] = true; SZ.zeigeElement(vis, k + 1); } });
+    }
     paint() {
       const s = this.el.querySelectorAll('.seg span')[this.i];
       const f = Math.min(this.nFrac == null ? 0 : this.nFrac, this.vFrac == null ? 1 : this.vFrac, 1);

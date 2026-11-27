@@ -1,4 +1,4 @@
-# Lernnuggets – Prototyp 0.7
+# Lernnuggets – Prototyp 0.8
 
 Lernplattform im Stil von Erklärvideos: Grafiken mit Animation oder eigene Videos, Sprecher, Untertitel, Quiz und
 MP4-Download. Läuft ausschließlich auf dem eigenen Server unter **https://lernnuggets.bootz.digital**.
@@ -32,6 +32,11 @@ Optional eine **Mindestdauer** (3, 5, 10 s oder eigene Angabe), sonst richtet si
 | **PNG mit Transparenz** | ca. 1600 px breit, aus Illustrator oder After Effects |
 | **Vollbild-Grafik** | fertige Erklärgrafik 1920×1080 mit eigenem Titel (Darstellung „Vollbild“) |
 | **Fertiges Video** | H.264 als .mov/.mp4 (ProRes läuft im Browser nicht) |
+
+**Mehrere Grafiken pro Szene:** Unter „Weitere Grafiken“ bis zu drei zusätzliche Grafiken oder Icons mit eigener Animation
+hinzufügen. Jede erscheint neben der ersten, sobald der Sprecher das eingetragene Wort sagt (z. B. „Passwort“); ohne Wort
+werden sie gleichmäßig über die Szene verteilt. Gilt im Player, in der Studio-Vorschau und im MP4-Export. Nicht bei
+Videos und Vollbild-Grafiken.
 
 **Hintergrund** auf drei Ebenen: Standard der Plattform (Einstellungen) → Lernnugget → Szene, jeweils als Farbe oder Bild
 (JPG/PNG, ideal 1920×1080). Stichwörter werden automatisch lesbar dargestellt.
